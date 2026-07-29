@@ -1,0 +1,18 @@
+# Dependency engine environments
+node_modules/
+.pnp
+.pnp.js
+
+# Production Next.js compiler output
+/web-app/.next/
+/web-app/out/
+
+# Supabase local environment states
+/supabase/.temp/
+/supabase/pull/
+.supabase/
+
+# Local sensitive configuration secrets
+.env
+*.env.local
+.env.*.local
