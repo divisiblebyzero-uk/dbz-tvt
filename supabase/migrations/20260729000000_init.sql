@@ -65,12 +65,11 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_media_states ENABLE ROW LEVEL SECURITY;
 
--- Allow all authenticated users (you and your wife) to read/write all data collectively
-CREATE POLICY "Allow full shared access to profiles" 
-    ON public.profiles FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ═► 🟢 To this:
+DROP POLICY IF EXISTS "Allow full shared access to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow full shared access to media_items" ON public.media_items;
+DROP POLICY IF EXISTS "Allow full shared access to user_media_states" ON public.user_media_states;
 
-CREATE POLICY "Allow full shared access to media_items" 
-    ON public.media_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Allow full shared access to user_media_states" 
-    ON public.user_media_states FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full shared access to profiles" ON public.profiles FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full shared access to media_items" ON public.media_items FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full shared access to user_media_states" ON public.user_media_states FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);

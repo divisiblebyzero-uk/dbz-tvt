@@ -1,6 +1,6 @@
-# GEMINI.md - Media Tracker Planning & Architecture
+# GEMINI.md - Media Tracker Planning, Architecture & State Sync
 
-This document outlines the architecture, data models, functionality, and development roadmap for the shared Movie/TV Series Kanban Tracking Application.
+This document serves as the live specification, system blueprint, and current project checkpoint state for our shared Movie/TV Series Kanban Tracking Application.
 
 ## 1. System Architecture
 
@@ -13,32 +13,31 @@ graph TD
 
     subgraph Frontend Features
     A1[- React Components: Kanban Board & Media Search]
-    A2[- Google OAuth Sign-In Integration]
+    A2[- Google OAuth & Dev Local Bypass Auth]
     A3[- Real-time listeners for instant board syncing]
     end
 
     subgraph Backend Features
     B1[- PostgreSQL Database: Relational storage]
-    B2[- Supabase Auth: Managed Google OAuth Lifecycles]
-    B3[- Server Actions / API Routes: Secure Data Hydration]
+    B2[- Supabase Auth & Webhook Database Profiles]
+    B3[- Server Actions / proxy.ts: Edge Network Route Security]
     end
 
     subgraph External Fetch Features
     C1[- TMDB API: Metadata, Streaming Providers, Genres]
-    C2[- OMDb API / Horizon API: Rotten Tomatoes / Scores]
+    C2[- OMDb API: Rotten Tomatoes Scores via IMDb Cross-Refs]
     end
 ```
 
-### Tech Stack Selection
-*   **Frontend Deployment**: [Vercel](https://vercel.com) hosting a responsive **Next.js / React** web application (mobile-friendly for Android).
-*   **Database & Backend**: [Supabase](https://supabase.com) providing PostgreSQL, native Google OAuth management, and real-time data synchronization.
-*   **External APIs**: [The Movie Database (TMDB) API](https://themoviedb.org) for primary data metadata and streaming availability via JustWatch. [OMDb API](http://omdbapi.com) for Rotten Tomatoes scores.
+### Core Tech Stack Decisions
+*   **Frontend & Hosting**: Next.js App Router deployed natively on Vercel.
+*   **Database & Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI.
+*   **Open Source License**: GNU Affero General Public License v3.0 (AGPL-3.0) committed to the root repository.
+*   **Testing Engine**: Vitest + JSDOM for isolated test-driven server actions and UI component verification.
 
 ---
 
-## 2. Repository Folder Structure
-
-A monorepo-style structure separates infrastructure-as-code (managed via Supabase CLI) from application source files, enabling automated continuous deployment pipelines.
+## 2. Active Repository Folder Structure
 
 ```text
 /media-tracker-repo
@@ -46,115 +45,78 @@ A monorepo-style structure separates infrastructure-as-code (managed via Supabas
 │   └── workflows/
 │       ├── deploy-frontend.yml     # Vercel deployment pipeline
 │       └── supabase-migrate.yml    # Supabase DB CI/CD migration pipeline
-├── supabase/                       # Generated automatically by Supabase CLI
-│   ├── config.toml                 # Local emulation configurations
-│   ├── functions/                  # Optional Edge Functions
-│   └── migrations/                 # SQL Migration files (Schema/RLS/Triggers)
-│       ├── 20260729000000_init.sql # Core tables, Enums, and Google triggers
-│       └── 20260729000001_rls.sql  # Row-Level Security rules
-└── web-app/                        # Next.js App Router Frontend
+├── supabase/                       # Managed via Supabase CLI
+│   ├── config.toml                 # Local configuration variables & allowed URL redirects
+│   ├── seed.sql                    # Automagic mock data loader (Husband/Wife divergent progress)
+│   └── migrations/                 # Local programmatic database state history
+│       └── 20260729000000_init.sql # Database schema, enums, triggers, and permissive anon/auth RLS
+└── web-app/                        # Next.js Frontend Core Container
     ├── src/
-    │   ├── app/                    # App Router (Pages, Layouts, Server Actions)
-    │   │   ├── auth/               # OAuth callbacks & login routing
-    │   │   ├── dashboard/          # Main Kanban board view
-    │   │   ├── layout.tsx
-    │   │   └── page.tsx
-    │   ├── components/             # Reusable UI components
-    │   │   ├── kanban/             # Board, Column, and Card components
-    │   │   └── ui/                 # Component library primitives (Shadcn/ui)
-    │   ├── hooks/                  # Custom React hooks (Real-time synchronization)
-    │   ├── lib/                    # Shared utilities
-    │   │   ├── supabase/           # Browser, Server, and Middleware clients
-    │   │   └── tmdb.ts             # API wrapper functions
-    │   └── types/                  # Database-generated TypeScript interfaces
-    ├── package.json
-    └── tailwind.config.js
+    │   ├── actions/                # Server Actions (tmdb.ts metadata, kanban.ts state triggers)
+    │   ├── app/                    # Next.js App Router endpoints
+    │   │   ├── auth/callback/      # OAuth session handshake route
+    │   │   ├── dashboard/          # Main 5-column server-side rendered Kanban board view
+    │   │   └── login/              # Landing screen with Google Auth & Dev Bypass toggles
+    │   ├── components/kanban/      # UI Cards, ProgressBadges, and predictive inputs
+    │   ├── lib/supabase/           # Browser connection clients and server instance initializers
+    │   ├── test/                   # Isolated test configuration context (setup.ts cleaning hooks)
+    │   └── types/                  # Local TypeScript definitions & auto-generated supabase.ts
+    ├── package.json                # Bundled packages, lockfiles, and `npm run test` vitest hooks
+    └── proxy.ts                    # Consolidated request path security interceptor
 ```
 
 ---
 
-## 3. Relational Data Model
-
-To support tracking a single TV show at different paces or separating individual watchlists, user progress is entirely decoupled from the media metadata.
+## 3. Relational Data Model Schema
 
 ### `profiles`
-Tracks individual user metrics. Automatically provisioned via a PostgreSQL trigger after an initial Google OAuth handshake.
-*   `id`: UUID (Primary Key, links to Supabase Auth)
+Tracks individual user metrics. Automatically provisioned via a PostgreSQL trigger on authentications.
+*   `id`: UUID (Primary Key, points to Auth profile logs)
 *   `display_name`: TEXT
-*   `avatar_url`: TEXT (Synced from Google Profile picture)
+*   `avatar_url`: TEXT
 
 ### `media_items`
-Stores the global cached metadata for a movie or TV show to eliminate duplicate API requests.
-*   `id`: UUID (Primary Key)
+Central cache for movie/TV show metadata to eliminate duplicate network lookup operations.
+*   `id`: UUID (Primary Key, autogenerated)
 *   `tmdb_id`: TEXT (Unique)
 *   `imdb_id`: TEXT
 *   `title`: TEXT
 *   `type`: ENUM ('movie', 'tv')
 *   `description`: TEXT
 *   `rotten_tomatoes_score`: INT
-*   `streaming_services`: JSONB (Array of provider names and logo URLs)
-*   `genres`: TEXT[] (Array of strings)
-*   `total_seasons`: INT (For TV shows)
+*   `streaming_services`: JSONB (Array of names and platform logo urls)
+*   `genres`: TEXT[]
+*   `total_seasons`: INT
 
 ### `user_media_states`
-Tracks the specific Kanban state and individual progress for a user on a piece of media. If an item is assigned to "both" at creation, two individual rows are mapped to this `media_item_id`.
+Tracks individual progress mapping entries. Handles multi-user divergent tracking metrics on identical shows.
 *   `id`: UUID (Primary Key)
 *   `profile_id`: UUID (Foreign Key -> `profiles.id`)
 *   `media_item_id`: UUID (Foreign Key -> `media_items.id`)
-*   `kanban_state`: ENUM ('not_available', 'available', 'prioritised', 'watching', 'watched')
-*   `current_season`: INT (Default 1, ignored for movies)
+*   `state`: ENUM ('not_available', 'available', 'prioritised', 'watching', 'watched')
+*   `current_season`: INT (Defaults to 1)
 
 ---
 
-## 4. Major Functionality & Automation Logic
+## 4. Operational Checkpoint State & Fixes Applied
 
-### A. Smart TV Season Progression Trigger
-When a user updates a TV series card state to `watched`:
-1.  The system evaluates if `current_season` is less than `media_items.total_seasons`.
-2.  **If a new season is available**: The system automatically updates the `user_media_states.kanban_state` back to `prioritised` (or `available`) and increments `current_season` by 1.
-3.  **If no new seasons exist**: The card remains in the `watched` column.
-4.  *Async Check*: A background check runs against the TMDB API to see if a newer season was recently released upstream. If found, `total_seasons` increments, and the card auto-advances.
-
-### B. Automated Card Creation Workflow
-1.  User types a title into the "Add Card" input field.
-2.  Frontend debounces input and queries the TMDB search API endpoint.
-3.  User selects the correct item from a visual dropdown list.
-4.  User selects assignment tracking preference using a 3-way toggle button: **[ Both (Default) ] [ Husband Only ] [ Wife Only ]**.
-5.  The backend triggers a combined fetch for metadata (`TMDB` + `OMDb` for Rotten Tomatoes scores).
-6.  The `media_items` record is populated.
-7.  The backend generates rows in `user_media_states` for the selected toggle option. (If `Both` is chosen, two distinct rows are generated for each user profile).
-
-### C. Unified vs. Split Kanban Views
-*   **Together View (Default)**: Aggregates cards where both users share the exact same state.
-*   **Split Progress Indicator**: For TV shows where progress diverges, or items explicitly assigned to only one person, the card displays split avatars showing individual states (e.g., "Wife: S1 (Watching) | Husband: S2 (Prioritised)").
+*   **Tree-Shaking**: Extraneous Next.js default landing parameters, styles, and public graphics purged.
+*   **Monorepo Alignment**: Errant root-level node dependencies, lockfiles, and configs dropped. All project tooling isolated inside `/web-app`.
+*   **Path Aliasing**: Imports refactored from old `@/app/actions/*` mappings to cleaner `@/actions/*` root-level structures.
+*   **Next.js Proxy Upgrades**: Replaced deprecated `middleware.ts` tracking structures with the modern standard edge **`proxy.ts`** configuration.
+*   **Authentication Local Bypass**: Built a secure local cookie system (`dev-mock-session`) to allow instant browser dashboard testing without setting up cloud OAuth variables upfront.
+*   **Database RLS Adjustments**: Relaxed PostgreSQL RLS targets locally to explicitly recognize `anon` permissions, resolving the empty loading state block.
 
 ---
 
-## 5. Implementation Todo List
+## 5. Next Session Implementation Todo List
 
-### Phase 1: Foundations, Auth & Database Setup
-- [ ] Create Supabase project and configure local environment via CLI (`supabase init`).
-- [ ] Draft initial migration file containing schema definitions, enums, and tables.
-- [ ] Configure Google Cloud Console OAuth credentials and enable Google Auth provider in Supabase.
-- [ ] Create database trigger to automatically map authentication sign-ins to the public `profiles` record.
-- [ ] Register for TMDB and OMDb API developer keys; assign them as production secret environment variables.
-- [ ] Implement Row-Level Security (RLS) policies allowing shared read/write data actions between accounts.
+### Phase 3: Interactive Dashboard Controls (Up Next)
+- [ ] Add interactive UI column transition buttons to individual Kanban media cards.
+- [ ] Connect card buttons to our implemented Server Action (`actions/kanban.ts`) to verify live database mutations.
+- [ ] Conduct browser end-to-end confirmation that moving a TV show card to `Watched` executes our automated season advancement logic.
 
-### Phase 2: Backend API & Automation Logic
-- [ ] Create Next.js server actions for text-based autocomplete lookups pointing to TMDB.
-- [ ] Construct backend hydration workflow (Accepting a TMDB ID, parsing raw data endpoints, fetching Rotten Tomatoes scores, and caching into SQL data records).
-- [ ] Program SQL relational evaluation rules to process `watched` state conversions for TV seasons.
-
-### Phase 3: Frontend UI Development
-- [ ] Initialize Next.js project with Tailwind CSS and shadcn/ui.
-- [ ] Build clean landing entry views with customized "Sign in with Google" layout triggers.
-- [ ] Build responsive multi-column Kanban board layouts (`Not Available`, `Available`, `Prioritised`, `Watching`, `Watched`).
-- [ ] Bind component states to real-time Supabase snapshot listeners to capture edits cross-device instantly.
-- [ ] Develop the "Add Media" configuration modal featuring autocomplete inputs and the 3-way distribution toggle.
-- [ ] Build individual item cards containing interactive streaming service asset banners, ratings, and independent user badge groupings.
-
-### Phase 4: Polish & Deployment
-- [ ] Add filter controls to cycle board perspectives ("My Board", "Wife's Board", "Shared Sync").
-- [ ] Write targeted invalidation rules to instantly re-check platform access details on command.
-- [ ] Append configuration files and web icons required to enable standard Progressive Web App (PWA) installation routines on mobile platforms.
-- [ ] Deploy frontend distribution assets to Vercel production edge systems.
+### Phase 4: Real-time Sync & Polish
+- [ ] Implement Supabase client Real-time Channel subscriptions inside the dashboard interface to capture cross-device modifications instantly over WebSockets.
+- [ ] Secure production Google OAuth keys via Google Cloud Developer Console.
+- [ ] Add an Android PWA configuration schema manifest.
