@@ -1,17 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
+import AddMediaInput from '@/components/kanban/AddMediaInput'
 import { KanbanBoardData, KanbanCard } from '@/types/kanban'
 import { Database } from '@/types/supabase'
-import AddMediaInput from '@/components/kanban/AddMediaInput'
+import { updateCardState } from '@/actions/kanban'
+import { revalidatePath } from 'next/cache'
 
 type KanbanState = Database['public']['Enums']['kanban_state']
 
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // 1. Fetch all profiles (You and your wife)
   const { data: profiles } = await supabase.from('profiles').select('*')
-  
-  // 2. Fetch all media items along with their respective tracking progress rows
   const { data: mediaStates } = await supabase
     .from('user_media_states')
     .select(`
@@ -21,7 +20,6 @@ export default async function DashboardPage() {
       media_items (*)
     `)
 
-  // 3. Initialize clean, empty Kanban lanes matching your custom board flow
   const board: KanbanBoardData = {
     not_available: [],
     available: [],
@@ -30,23 +28,33 @@ export default async function DashboardPage() {
     watched: []
   }
 
-  if (!mediaStates || !profiles) {
-    return <div className="p-8">Loading infrastructure states...</div>
+  if (!mediaStates || !profiles || mediaStates.length === 0) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 p-8 max-w-7xl mx-auto space-y-6">
+        <header className="border-b border-slate-800 pb-6 space-y-4">
+          <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">🎬 Our Watchlist</h1>
+          <p className="text-sm text-slate-400">No active tracking items discovered inside your local database.</p>
+          <AddMediaInput />
+        </header>
+      </main>
+    )
   }
 
-  // 4. Transform relational rows into consolidated visual cards
   const cardsMap: { [mediaId: string]: KanbanCard } = {}
 
   mediaStates.forEach((row) => {
-    const media = row.media_items as any
-    if (!media) return
+    const rawMedia = row.media_items
+    // 🟢 Fixed extraction: Extract rawMedia[0] if it comes back nested as an array!
+    const media: any = Array.isArray(rawMedia) ? rawMedia[0] : rawMedia
+    
+    if (!media || !media.id) return
 
     const profile = profiles.find((p) => p.id === row.profile_id)
     if (!profile) return
 
     if (!cardsMap[media.id]) {
       cardsMap[media.id] = {
-        media,
+        media: media,
         userStates: {}
       }
     }
@@ -59,8 +67,6 @@ export default async function DashboardPage() {
     }
   })
 
-  // 5. Distribute consolidated items into their primary visual Kanban tracking column.
-  // Note: If you and your wife are split on states, the item displays inside the lowest matching priority lane.
   Object.values(cardsMap).forEach((card) => {
     const states = Object.values(card.userStates).map((s) => s.state)
     
@@ -74,77 +80,125 @@ export default async function DashboardPage() {
     board[targetLane].push(card)
   })
 
-  const laneTitles: { [key in KanbanState]: string } = {
-    not_available: '🍿 Not Available Yet',
-    available: '🟢 Available',
-    prioritised: '🔥 Next Up / Prioritised',
-    watching: '📺 Watching',
-    watched: '✅ Watched'
+  async function handleShiftColumn(formData: FormData) {
+    'use server'
+    const profileId = formData.get('profileId') as string
+    const mediaItemId = formData.get('mediaItemId') as string
+    const targetState = formData.get('targetState') as KanbanState
+
+    await updateCardState({ profileId, mediaItemId, newState: targetState })
+    revalidatePath('/dashboard')
   }
 
+  const laneOrder: KanbanState[] = ['not_available', 'available', 'prioritised', 'watching', 'watched']
+
+  const laneMeta: { [key in KanbanState]: { title: string; color: string; bg: string } } = {
+    not_available: { title: 'Not Available', color: 'text-slate-400 bg-slate-900/40 border-slate-800', bg: 'bg-slate-900/10' },
+    available: { title: 'Available', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', bg: 'bg-emerald-950/5' },
+    prioritised: { title: 'Next Up', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', bg: 'bg-amber-950/5' },
+    watching: { title: 'Watching', color: 'text-sky-400 bg-sky-500/10 border-sky-500/20', bg: 'bg-sky-950/5' },
+    watched: { title: 'Watched', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', bg: 'bg-indigo-950/5' }
+  }
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 p-6 space-y-6">
-      <header className="flex items-center justify-between border-b border-slate-800 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Our Shared Watchlist</h1>
-          <p className="text-sm text-slate-400">Tracked collaboratively with real-time sync.</p>
+    <main className="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans p-4 space-y-4">
+      
+      <header className="flex flex-shrink-0 items-center justify-between gap-6 border-b border-slate-900 pb-3">
+        <div className="flex items-center gap-6 flex-1">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white">Our Shared Watchlist</h1>
+            <p className="text-xs text-slate-500">Real-time media matrix.</p>
+          </div>
+          <AddMediaInput />
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex gap-1.5 bg-slate-900/40 border border-slate-800/60 p-1 rounded-xl">
           {profiles.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 text-xs bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <div key={p.id} className="flex items-center gap-2 text-[11px] font-bold bg-slate-950 border border-slate-800 px-3 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               {p.display_name}
             </div>
           ))}
         </div>
       </header>
-      <div>
-  <h1 className="text-2xl font-bold tracking-tight">Our Shared Watchlist</h1>
-  <p className="text-sm text-slate-400 mb-4">Tracked collaboratively with real-time sync.</p>
-  
-  {/* 🟢 Render the predictive input element right inside your header layout */}
-  <AddMediaInput />
-</div>
 
-      {/* Grid container spanning all 5 custom media lanes */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
-        {(Object.keys(board) as KanbanState[]).map((laneKey) => (
-          <div key={laneKey} className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-4 flex flex-col min-h-[500px]">
-            <h2 className="text-sm font-semibold tracking-wide text-slate-300 mb-3 border-b border-slate-800 pb-2">
-              {laneTitles[laneKey]} <span className="text-xs text-slate-500 font-mono ml-1">({board[laneKey].length})</span>
+      <div className="kanban-board-grid">
+        {laneOrder.map((laneKey) => (
+          <div key={laneKey} className="kanban-lane">
+            
+            <h2 className={`text-[11px] font-bold tracking-wider uppercase mb-3 px-2 py-1.5 border border-slate-800 rounded-lg flex items-center justify-between ${laneMeta[laneKey].color}`}>
+              <span>{laneMeta[laneKey].title}</span>
+              <span className="font-mono text-slate-400 bg-slate-950/80 border border-slate-800 px-1.5 py-0.2 rounded text-[10px]">
+                {board[laneKey].length}
+              </span>
             </h2>
             
-            <div className="space-y-3 flex-1">
+            <div className="kanban-scroll-area space-y-3">
               {board[laneKey].map((card) => (
-                <div key={card.media.id} className="bg-slate-900 border border-slate-800 p-4 rounded-lg shadow-sm hover:border-slate-700 transition-all space-y-3">
-                  <div>
-                    <span className="text-[10px] tracking-wider uppercase px-2 py-0.5 rounded bg-slate-800 font-medium text-slate-400 border border-slate-700/50 mr-1.5">
+                <div key={card.media.id} className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-xl shadow-md hover:border-slate-700 transition-all space-y-3">
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] tracking-widest uppercase font-black px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-500">
                       {card.media.type}
                     </span>
-                    <h3 className="font-semibold text-slate-200 mt-1 inline-block">{card.media.title}</h3>
+                    {card.media.rotten_tomatoes_score && (
+                      <span className="text-[10px] font-bold text-amber-500 bg-amber-500/5 px-1.5 py-0.2 border border-amber-500/10 rounded">
+                        🍅 {card.media.rotten_tomatoes_score}%
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{card.media.description}</p>
-                  
-                  {card.media.rotten_tomatoes_score && (
-                    <div className="text-[11px] font-medium text-amber-400/90 flex items-center gap-1">
-                      🍅 {card.media.rotten_tomatoes_score}% RT Score
+
+                  <div>
+                    <h3 className="font-extrabold text-xs text-slate-200 tracking-tight">{card.media.title}</h3>
+                    <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed mt-1">{card.media.description}</p>
+                  </div>
+
+                  {card.media.streaming_services && (card.media.streaming_services as any[]).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {(card.media.streaming_services as any[]).map((prov, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400 font-medium">
+                          {prov.name}
+                        </span>
+                      ))}
                     </div>
                   )}
 
-                  {/* Render your unit-tested custom individual split user tracking states */}
-                  <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
+                  <div className="pt-2.5 border-t border-slate-950 space-y-2">
                     {Object.entries(card.userStates).map(([profileId, stateObj]) => (
-                      <div key={profileId} className="flex items-center justify-between text-[11px] bg-slate-950/60 px-2 py-1 rounded border border-slate-800/40">
-                        <span className="text-slate-400 font-medium">{stateObj.displayName}:</span>
-                        <span className="text-slate-300 capitalize">
-                          {stateObj.state} {card.media.type === 'tv' && `(S${stateObj.currentSeason})`}
-                        </span>
+                      <div key={profileId} className="flex flex-col gap-1.5 bg-slate-950/80 p-2 rounded-lg border border-slate-900">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                          <span className="text-slate-500">{stateObj.displayName}:</span>
+                          <span className="text-slate-300 capitalize">
+                            {stateObj.state} {card.media.type === 'tv' && `(S${stateObj.currentSeason})`}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {laneOrder.map((stepState) => {
+                            if (stepState === stateObj.state) return null
+                            const label = stepState === 'prioritised' ? 'Next' : stepState.replace('_', ' ')
+                            return (
+                              <form key={stepState} action={handleShiftColumn} className="flex-1">
+                                <input type="hidden" name="profileId" value={profileId} />
+                                <input type="hidden" name="mediaItemId" value={card.media.id} />
+                                <input type="hidden" name="targetState" value={stepState} />
+                                <button
+                                  type="submit"
+                                  className="w-full text-center text-[9px] font-bold px-1 py-1 bg-slate-900 border border-slate-800 hover:border-slate-600 hover:text-white rounded-md text-slate-400 uppercase transition-all shadow-sm active:scale-95"
+                                >
+                                  ➔ {label}
+                                </button>
+                              </form>
+                            )
+                          })}
+                        </div>
                       </div>
                     ))}
                   </div>
+
                 </div>
               ))}
             </div>
+
           </div>
         ))}
       </div>
