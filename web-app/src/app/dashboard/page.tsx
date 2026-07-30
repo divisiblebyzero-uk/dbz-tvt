@@ -10,6 +10,7 @@ type KanbanState = Database['public']['Enums']['kanban_state']
 export default async function DashboardPage() {
   const supabase = await createClient()
 
+  // 1. Extract database user profiles and progress trackers
   const { data: profiles } = await supabase.from('profiles').select('*')
   const { data: mediaStates } = await supabase
     .from('user_media_states')
@@ -30,12 +31,12 @@ export default async function DashboardPage() {
 
   if (!mediaStates || !profiles || mediaStates.length === 0) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 p-8 max-w-7xl mx-auto space-y-6">
-        <header className="border-b border-slate-800 pb-6 space-y-4">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">🎬 Our Watchlist</h1>
-          <p className="text-sm text-slate-400">No active tracking items discovered inside your local database.</p>
+      <main className="min-h-screen bg-slate-950 p-8 flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-sm">
+          <h1 className="text-2xl font-black text-white">🎬 Our Watchlist</h1>
+          <p className="text-xs text-slate-400">No active tracking items discovered inside your local database.</p>
           <AddMediaInput />
-        </header>
+        </div>
       </main>
     )
   }
@@ -44,8 +45,7 @@ export default async function DashboardPage() {
 
   mediaStates.forEach((row) => {
     const rawMedia = row.media_items
-    // 🟢 Fixed extraction: Extract rawMedia[0] if it comes back nested as an array!
-    const media: any = Array.isArray(rawMedia) ? rawMedia[0] : rawMedia
+    const media: any = Array.isArray(rawMedia) ? rawMedia : rawMedia
     
     if (!media || !media.id) return
 
@@ -92,28 +92,31 @@ export default async function DashboardPage() {
 
   const laneOrder: KanbanState[] = ['not_available', 'available', 'prioritised', 'watching', 'watched']
 
-  const laneMeta: { [key in KanbanState]: { title: string; color: string; bg: string } } = {
-    not_available: { title: 'Not Available', color: 'text-slate-400 bg-slate-900/40 border-slate-800', bg: 'bg-slate-900/10' },
-    available: { title: 'Available', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', bg: 'bg-emerald-950/5' },
-    prioritised: { title: 'Next Up', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', bg: 'bg-amber-950/5' },
-    watching: { title: 'Watching', color: 'text-sky-400 bg-sky-500/10 border-sky-500/20', bg: 'bg-sky-950/5' },
-    watched: { title: 'Watched', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', bg: 'bg-indigo-950/5' }
+  const laneMeta: { [key in KanbanState]: { title: string; color: string; dot: string } } = {
+    not_available: { title: '🍿 Not Available', color: 'text-slate-400 bg-slate-900/40 border-slate-800', dot: 'bg-slate-500' },
+    available: { title: '🟢 Available', color: 'text-emerald-400 bg-emerald-950/20 border-emerald-950/40', dot: 'bg-emerald-400' },
+    prioritised: { title: '🔥 Shortlist', color: 'text-amber-400 bg-amber-950/20 border-amber-950/40', dot: 'bg-amber-400' },
+    watching: { title: '📺 Watching', color: 'text-sky-400 bg-sky-950/20 border-sky-950/40', dot: 'bg-sky-400' },
+    watched: { title: '✅ Done', color: 'text-indigo-400 bg-indigo-950/20 border-indigo-950/40', dot: 'bg-indigo-400' }
   }
   return (
-    <main className="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans p-4 space-y-4">
+    <main className="h-screen max-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden p-6 space-y-5 select-none">
       
-      <header className="flex flex-shrink-0 items-center justify-between gap-6 border-b border-slate-900 pb-3">
-        <div className="flex items-center gap-6 flex-1">
+      {/* Header Bar Row */}
+      <header className="flex flex-shrink-0 flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-900 pb-3.5">
+        <div className="flex flex-col md:flex-row md:items-center gap-6 flex-1 w-full">
           <div>
-            <h1 className="text-xl font-black tracking-tight text-white">Our Shared Watchlist</h1>
-            <p className="text-xs text-slate-500">Real-time media matrix.</p>
+            <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-2">🎬 Our Watchlist</h1>
+            <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">Collaborative Media Matrix</p>
           </div>
-          <AddMediaInput />
+          <div className="w-full md:w-auto flex-1 max-w-md">
+            <AddMediaInput />
+          </div>
         </div>
         
-        <div className="flex gap-1.5 bg-slate-900/40 border border-slate-800/60 p-1 rounded-xl">
+        <div className="flex gap-1.5 bg-slate-900/50 border border-slate-800/60 p-1.5 rounded-xl self-end md:self-center">
           {profiles.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 text-[11px] font-bold bg-slate-950 border border-slate-800 px-3 py-1 rounded-lg">
+            <div key={p.id} className="flex items-center gap-2 text-xs font-bold bg-slate-950 border border-slate-900 px-3 py-1.5 rounded-lg shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               {p.display_name}
             </div>
@@ -121,82 +124,119 @@ export default async function DashboardPage() {
         </div>
       </header>
 
+      {/* 5-Column Side-by-Side Horizontal Desktop Matrix Grid Layout */}
       <div className="kanban-board-grid">
         {laneOrder.map((laneKey) => (
-          <div key={laneKey} className="kanban-lane">
+          <div key={laneKey} className="kanban-lane shadow-xl">
             
-            <h2 className={`text-[11px] font-bold tracking-wider uppercase mb-3 px-2 py-1.5 border border-slate-800 rounded-lg flex items-center justify-between ${laneMeta[laneKey].color}`}>
-              <span>{laneMeta[laneKey].title}</span>
-              <span className="font-mono text-slate-400 bg-slate-950/80 border border-slate-800 px-1.5 py-0.2 rounded text-[10px]">
+            {/* Column Label Header Status Card */}
+            <div className={`flex flex-shrink-0 items-center justify-between px-3 py-2 border border-slate-800 rounded-xl mb-3 font-bold text-xs tracking-wide shadow-inner ${laneMeta[laneKey].color}`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${laneMeta[laneKey].dot}`} />
+                <span>{laneMeta[laneKey].title}</span>
+              </div>
+              <span className="font-mono text-[10px] bg-slate-950 border border-slate-800/80 px-2 py-0.5 rounded-md text-slate-400">
                 {board[laneKey].length}
               </span>
-            </h2>
+            </div>
             
-            <div className="kanban-scroll-area space-y-3">
-              {board[laneKey].map((card) => (
-                <div key={card.media.id} className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-xl shadow-md hover:border-slate-700 transition-all space-y-3">
-                  
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[9px] tracking-widest uppercase font-black px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-500">
-                      {card.media.type}
-                    </span>
-                    {card.media.rotten_tomatoes_score && (
-                      <span className="text-[10px] font-bold text-amber-500 bg-amber-500/5 px-1.5 py-0.2 border border-amber-500/10 rounded">
-                        🍅 {card.media.rotten_tomatoes_score}%
-                      </span>
-                    )}
-                  </div>
+            {/* Scrollable Lane Column container list */}
+            <div className="kanban-scroll-area space-y-2.5">
+              {board[laneKey].map((card) => {
+                const providers = (card.media.streaming_services as any[]) || []
+                const networkLabel = providers.length > 0 ? providers[0].name : 'Cable'
 
-                  <div>
-                    <h3 className="font-extrabold text-xs text-slate-200 tracking-tight">{card.media.title}</h3>
-                    <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed mt-1">{card.media.description}</p>
-                  </div>
+                const genreText = String(card.media.genres || '')
+                  .replace(/[{}"\\]/g, '')
+                  .split(',')
+                  .map(g => g.trim())
+                  .filter(Boolean)
 
-                  {card.media.streaming_services && (card.media.streaming_services as any[]).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      {(card.media.streaming_services as any[]).map((prov, i) => (
-                        <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400 font-medium">
-                          {prov.name}
+                return (
+                  // 🟢 Simplified details block to let the inner row handle background parameters cleanly
+                  <details key={card.media.id} className="group block mb-2.5 outline-none select-none">
+                    
+                    {/* 🟢 Premium styled Summary row card featuring background depth definitions */}
+                    <summary className="card-summary-row p-3 hover:bg-slate-800/40 transition-colors">
+                      
+                      {/* Left align grouping elements (Title + Platform network badge) */}
+                      <div className="card-header-left">
+                        <h3 className="font-extrabold text-xs text-slate-100 tracking-tight group-open:text-white truncate">
+                          {laneKey === 'watched' && '✅ '}{card.media.title}
+                        </h3>
+                        
+                        <span className="network-badge-tag">
+                          {networkLabel}
                         </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="pt-2.5 border-t border-slate-950 space-y-2">
-                    {Object.entries(card.userStates).map(([profileId, stateObj]) => (
-                      <div key={profileId} className="flex flex-col gap-1.5 bg-slate-950/80 p-2 rounded-lg border border-slate-900">
-                        <div className="flex items-center justify-between text-[10px] font-bold">
-                          <span className="text-slate-500">{stateObj.displayName}:</span>
-                          <span className="text-slate-300 capitalize">
-                            {stateObj.state} {card.media.type === 'tv' && `(S${stateObj.currentSeason})`}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {laneOrder.map((stepState) => {
-                            if (stepState === stateObj.state) return null
-                            const label = stepState === 'prioritised' ? 'Next' : stepState.replace('_', ' ')
-                            return (
-                              <form key={stepState} action={handleShiftColumn} className="flex-1">
-                                <input type="hidden" name="profileId" value={profileId} />
-                                <input type="hidden" name="mediaItemId" value={card.media.id} />
-                                <input type="hidden" name="targetState" value={stepState} />
-                                <button
-                                  type="submit"
-                                  className="w-full text-center text-[9px] font-bold px-1 py-1 bg-slate-900 border border-slate-800 hover:border-slate-600 hover:text-white rounded-md text-slate-400 uppercase transition-all shadow-sm active:scale-95"
-                                >
-                                  ➔ {label}
-                                </button>
-                              </form>
-                            )
-                          })}
-                        </div>
                       </div>
-                    ))}
-                  </div>
 
-                </div>
-              ))}
+                      {/* Right align grouping elements (Clean padded charcoal genre pill capsules) */}
+                      {genreText.length > 0 && (
+                        <div className="flex gap-1.5 flex-shrink-0 items-center">
+                          {genreText.slice(0, 2).map((genreName, i) => (
+                            <span key={i} className="genre-pill-capsule">
+                              {genreName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </summary>
+
+                    {/* 🟢 Expanded Drawer content panel matching our clean card layout bounds */}
+                    <div className="mx-1 mt-1.5 px-3.5 pb-3.5 pt-3 border-x border-b border-slate-800 bg-slate-900/20 rounded-b-xl space-y-3 font-normal shadow-md">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="tracking-widest uppercase font-black px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-500">
+                          {card.media.type}
+                        </span>
+                        {card.media.rotten_tomatoes_score && (
+                          <span className="font-extrabold text-amber-500 bg-amber-500/5 px-2 py-0.5 border border-amber-500/10 rounded-md">
+                            🍅 {card.media.rotten_tomatoes_score}% RT Score
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-400 leading-relaxed font-normal">
+                        {card.media.description}
+                      </p>
+
+                      {/* Progressive Individual Split User Progress Control Row Banners */}
+                      <div className="pt-2.5 border-t border-slate-800/40 space-y-2">
+                        {Object.entries(card.userStates).map(([profileId, stateObj]) => (
+                          <div key={profileId} className="flex flex-col gap-2 bg-slate-950/80 p-2.5 rounded-xl border border-slate-900/60">
+                            <div className="flex items-center justify-between text-[10px] font-bold">
+                              <span className="text-slate-400">{stateObj.displayName}:</span>
+                              <span className="text-slate-300 capitalize">
+                                {stateObj.state} {card.media.type === 'tv' && `(S${stateObj.currentSeason})`}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {laneOrder.map((stepState) => {
+                                if (stepState === stateObj.state) return null
+                                const label = stepState === 'prioritised' ? 'Shortlist' : stepState.replace('_', ' ')
+                                return (
+                                  <form key={stepState} action={handleShiftColumn} className="flex-1 min-w-[45%]">
+                                    <input type="hidden" name="profileId" value={profileId} />
+                                    <input type="hidden" name="mediaItemId" value={card.media.id} />
+                                    <input type="hidden" name="targetState" value={stepState} />
+                                    <button
+                                      type="submit"
+                                      className="w-full text-center text-[9px] font-extrabold px-1 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 hover:text-white rounded-md text-slate-400 uppercase tracking-tighter transition-all cursor-pointer"
+                                    >
+                                      ➔ {label.split(' ')}
+                                    </button>
+                                  </form>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </details>
+                )
+              })}
             </div>
 
           </div>

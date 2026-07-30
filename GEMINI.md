@@ -1,10 +1,10 @@
-# GEMINI.md - Media Tracker Planning, Architecture & State Sync
+# GEMINI.md - Media Tracker Operational State Checkpoint
 
-This document serves as the live specification, system blueprint, and current project checkpoint state for our shared Movie/TV Series Kanban Tracking Application.
+This document serves as the live architectural specification, system blueprint, and current project checkpoint state for our shared Movie/TV Series Kanban Tracking Application.
 
-## 1. System Architecture
+## 1. Complete System Architecture
 
-The application uses a modern, serverless SaaS architecture optimized for real-time updates and zero-cost hobby tiers.
+The application uses a modern, serverless SaaS architecture optimized for real-time updates, single-viewport layouts, and high-density information display.
 
 ```mermaid
 graph TD
@@ -12,28 +12,28 @@ graph TD
     B -->|External API Fetch| C[Upstream APIs: TMDB & OMDb]
 
     subgraph Frontend Features
-    A1[- React Components: Kanban Board & Media Search]
-    A2[- Google OAuth & Dev Local Bypass Auth]
-    A3[- Real-time listeners for instant board syncing]
+    A1[- Next.js 14 App Router + Tailwind CSS v4 Engine]
+    A2[- High-Density HTML5 details Inline Summary Rows]
+    A3[- Local Dev Bypass Auth & Slider Component Filters]
     end
 
     subgraph Backend Features
-    B1[- PostgreSQL Database: Relational storage]
-    B2[- Supabase Auth & Webhook Database Profiles]
-    B3[- Server Actions / proxy.ts: Edge Network Route Security]
+    B1[- PostgreSQL Database: Decoupled Relational storage]
+    B2[- Supabase Auth & Webhook Auto-Provisioned Profiles]
+    B3[- Server Actions & middleware.ts: Edge Network Barriers]
     end
 
     subgraph External Fetch Features
-    C1[- TMDB API: Metadata, Streaming Providers, Genres]
+    C1[- TMDB API: Auto Metadata Hydration, Genres, Networks]
     C2[- OMDb API: Rotten Tomatoes Scores via IMDb Cross-Refs]
     end
 ```
 
 ### Core Tech Stack Decisions
-*   **Frontend & Hosting**: Next.js App Router deployed natively on Vercel.
-*   **Database & Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI.
-*   **Open Source License**: GNU Affero General Public License v3.0 (AGPL-3.0) committed to the root repository.
-*   **Testing Engine**: Vitest + JSDOM for isolated test-driven server actions and UI component verification.
+*   **Frontend Framework**: Next.js 14 App Router with the **Tailwind CSS v4** Oxide styling compiler architecture.
+*   **Database Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI with custom database table privileges explicitly granted to the `anon` developer role.
+*   **Open Source License**: GNU Affero General Public License v3.0 (AGPL-3.0) committed to the repository root.
+*   **Testing Suite**: Vitest + JSDOM for isolated test-driven server actions and component cleanup verifications.
 
 ---
 
@@ -41,33 +41,37 @@ graph TD
 
 ```text
 /media-tracker-repo
-├── .github/
-│   └── workflows/
-│       ├── deploy-frontend.yml     # Vercel deployment pipeline
-│       └── supabase-migrate.yml    # Supabase DB CI/CD migration pipeline
+├── .github/workflows/
+│   ├── deploy-frontend.yml     # Vercel deployment pipeline
+│   └── supabase-migrate.yml    # Supabase DB CI/CD migration pipeline
 ├── supabase/                       # Managed via Supabase CLI
-│   ├── config.toml                 # Local configuration variables & allowed URL redirects
+│   ├── config.toml                 # Allowed redirect URLs configuration array
 │   ├── seed.sql                    # Automagic mock data loader (Husband/Wife divergent progress)
 │   └── migrations/                 # Local programmatic database state history
 │       └── 20260729000000_init.sql # Database schema, enums, triggers, and permissive anon/auth RLS
 └── web-app/                        # Next.js Frontend Core Container
     ├── src/
-    │   ├── actions/                # Server Actions (tmdb.ts metadata, kanban.ts state triggers)
-    │   ├── app/                    # Next.js App Router endpoints
+    │   ├── actions/                # Server Actions
+    │   │   ├── kanban.ts           # State modifiers & smart TV season progression logic
+    │   │   └── tmdb.ts             # Predictive multi-search lookups & server-side metadata hydration
+    │   ├── app/                    # Next.js App Router layout endpoints
     │   │   ├── auth/callback/      # OAuth session handshake route
-    │   │   ├── dashboard/          # Main 5-column server-side rendered Kanban board view
-    │   │   └── login/              # Landing screen with Google Auth & Dev Bypass toggles
-    │   ├── components/kanban/      # UI Cards, ProgressBadges, and predictive inputs
-    │   ├── lib/supabase/           # Browser connection clients and server instance initializers
-    │   ├── test/                   # Isolated test configuration context (setup.ts cleaning hooks)
-    │   └── types/                  # Local TypeScript definitions & auto-generated supabase.ts
-    ├── package.json                # Bundled packages, lockfiles, and `npm run test` vitest hooks
-    └── proxy.ts                    # Consolidated request path security interceptor
+    │   │   ├── dashboard/          # Main single-viewport 5-column Kanban board view
+    │   │   ├── login/              # Entry screen with Google Auth & Dev Bypass toggles
+    │   │   ├── globals.css         # Tailwind v4 engine configurations and inline row style overrides
+    │   │   └── layout.tsx          # Master layout component
+    │   ├── components/kanban/      # UI Layout Elements
+    │   │   ├── AddMediaInput.tsx   # Premium dark charcoal search bar and slide-track selectors
+    │   │   └── ProgressBadge.tsx   # Unit-tested individual split user progress indicators
+    │   └── types/                  # Database-generated TypeScript interfaces & kaban.ts structures
+    ├── middleware.ts               # Core route protection gate interception script
+    ├── vitest.config.ts            # Vitest unit execution pipeline settings
+    └── package.json                # Single-tier app dependency nodes and testing execution triggers
 ```
 
 ---
 
-## 3. Relational Data Model Schema
+## 3. High-Density Relational Schema Layout
 
 ### `profiles`
 Tracks individual user metrics. Automatically provisioned via a PostgreSQL trigger on authentications.
@@ -89,7 +93,7 @@ Central cache for movie/TV show metadata to eliminate duplicate network lookup o
 *   `total_seasons`: INT
 
 ### `user_media_states`
-Tracks individual progress mapping entries. Handles multi-user divergent tracking metrics on identical shows.
+Tracks individual progress mapping entries. Handles multi-user divergent tracking metrics on identical shows (e.g., Husband on Season 2, Wife on Season 1 simultaneously).
 *   `id`: UUID (Primary Key)
 *   `profile_id`: UUID (Foreign Key -> `profiles.id`)
 *   `media_item_id`: UUID (Foreign Key -> `media_items.id`)
@@ -98,25 +102,22 @@ Tracks individual progress mapping entries. Handles multi-user divergent trackin
 
 ---
 
-## 4. Operational Checkpoint State & Fixes Applied
+## 4. Current Progress & UI Fixes Applied
 
-*   **Tree-Shaking**: Extraneous Next.js default landing parameters, styles, and public graphics purged.
-*   **Monorepo Alignment**: Errant root-level node dependencies, lockfiles, and configs dropped. All project tooling isolated inside `/web-app`.
-*   **Path Aliasing**: Imports refactored from old `@/app/actions/*` mappings to cleaner `@/actions/*` root-level structures.
-*   **Next.js Proxy Upgrades**: Replaced deprecated `middleware.ts` tracking structures with the modern standard edge **`proxy.ts`** configuration.
-*   **Authentication Local Bypass**: Built a secure local cookie system (`dev-mock-session`) to allow instant browser dashboard testing without setting up cloud OAuth variables upfront.
-*   **Database RLS Adjustments**: Relaxed PostgreSQL RLS targets locally to explicitly recognize `anon` permissions, resolving the empty loading state block.
+*   **Single Viewport Grid Constraints**: Configured layout mechanics (`h-screen`, `overflow-hidden`, and `kanban-scroll-area`) to lock the entire 5-column dashboard within a single monitor screen frame without global page scrolling.
+*   **High-Density Inline Accordions**: Implemented HTML5 `<details>` and `<summary>` components to keep the Kanban interface compact, allowing cards to open downwards in place when clicked.
+*   **Layout Alignment Corrected**: Overrode Tailwind v4 block configurations with a dedicated CSS inline row layout. The cards now feature an executive summary row containing **Title ➔ Network Badge ➔ Mapped Genre Capsule Pills** sitting completely on a single line.
+*   **Premium Background Aesthetics**: Added a distinct dark charcoal surface background color (`#0f172a`), border framing, and shadow depth to the rows to separate them cleanly from the lane columns.
+*   **Input Form Transformation**: Refactored the search layout container to use a dark-glass entry box input field and a sliding-pill green selector element block.
 
 ---
 
 ## 5. Next Session Implementation Todo List
 
-### Phase 3: Interactive Dashboard Controls (Up Next)
-- [ ] Add interactive UI column transition buttons to individual Kanban media cards.
-- [ ] Connect card buttons to our implemented Server Action (`actions/kanban.ts`) to verify live database mutations.
-- [ ] Conduct browser end-to-end confirmation that moving a TV show card to `Watched` executes our automated season advancement logic.
+When starting a new session, resume implementation at **Phase 4**:
 
 ### Phase 4: Real-time Sync & Polish
-- [ ] Implement Supabase client Real-time Channel subscriptions inside the dashboard interface to capture cross-device modifications instantly over WebSockets.
-- [ ] Secure production Google OAuth keys via Google Cloud Developer Console.
-- [ ] Add an Android PWA configuration schema manifest.
+- [ ] Connect the dashboard component views to client-side Supabase Real-time Channel subscriptions (`supabase.channel().on('postgres_changes')`) to catch card movements and immediately force visual re-validation across other browsers instantly over WebSockets.
+- [ ] Test the smart TV season progression validation trigger end-to-end (Verify that clicking "➔ Watched" on an active show auto-increments tracked progress by 1 season and bounces the row card back to the Shortlist lane).
+- [ ] Configure live production OAuth client IDs inside Google Cloud Developer Console.
+- [ ] Generate standard Progressive Web App (PWA) manifest parameters to enable clean local installation behaviors on Android mobile platforms.

@@ -1,52 +1,136 @@
 @import "tailwindcss";
 
-/* 🟢 Standard native sans-serif stack to bypass Next.js Turbopack variable loading bugs */
 body {
-  background-color: #030712;
-  color: #f3f4f6;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 🟢 Structured horizontal viewport grid constraints */
+/* 5-Column Grid Setup */
 .kanban-board-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 1.25rem;
-  height: 100%;
-  align-items: stretch;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 1rem !important;
+  height: calc(100vh - 120px) !important;
+  align-items: stretch !important;
 }
 
 .kanban-lane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border-radius: 1rem;
-  padding: 1rem;
-  background-color: rgba(17, 24, 39, 0.6);
-  border: 1px solid rgba(31, 41, 55, 0.7);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  border-radius: 1rem !important;
+  padding: 0.85rem !important;
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  border: 1px solid rgba(30, 41, 59, 0.5) !important;
 }
 
 .kanban-scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 0.25rem;
+  flex: 1 !important;
+  overflow-y: auto !important;
 }
 
-/* Custom scrollbars for independent lane navigation containers */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+/* 🟢 Enhanced summary row acting as a solid card background container */
+.card-summary-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 0.75rem !important;
+  cursor: pointer !important;
+  outline: none !important;
+  background-color: #0f172a !important; /* Solid Slate-900 surface */
+  border: 1px solid #1e293b !important;   /* Sleek border edge */
+  border-radius: 0.75rem !important;       /* Clean rounded corners */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important; /* Premium card depth shadow */
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Force the Title and the Network Badge to stay side-by-side */
+.card-header-left {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  min-w: 0 !important;
+  flex: 1 !important;
 }
-::-webkit-scrollbar-thumb {
-  background: #1f2937;
-  border-radius: 9999px;
+
+/* Hide disclosure indicators */
+summary {
+  display: flex !important;
+  list-style: none !important;
+  list-style-type: none !important;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+summary::-webkit-details-marker,
+summary::marker {
+  display: none !important;
+  content: "" !important;
+}
+
+/* Genre Pills */
+.genre-pill-capsule {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 0.15rem 0.5rem !important;
+  border-radius: 9999px !important;
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+  white-space: nowrap !important;
+}
+
+/* Streaming Badges */
+.network-badge-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 0.15rem 0.4rem !important;
+  border-radius: 0.375rem !important;
+  background-color: #020617 !important;
+  border: 1px solid #1e293b !important;
+  color: #94a3b8 !important;
+  white-space: nowrap !important;
+}
+
+/* 🟢 Modern Search Input Wrapper */
+.search-input-field {
+  width: 100% !important;
+  background-color: #0f172a !important; /* Solid Slate-900 */
+  border: 1px solid #1e293b !important;   /* Subtle slate border */
+  border-radius: 0.75rem !important;       /* Clean rounded corners */
+  padding: 0.625rem 1rem !important;       /* Comfortable breathing room */
+  font-size: 0.875rem !important;
+  color: #f8fafc !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+.search-input-field:focus {
+  border-color: #3b82f6 !important;       /* Clean blue accent focus */
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* 🟢 Tactile Toggle Selector Framework */
+.toggle-option-button {
+  text-transform: capitalize !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 0.25rem 0.625rem !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid #1e293b !important;
+  background-color: #0f172a !important;
+  color: #64748b !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+}
+.toggle-option-button.active {
+  background-color: rgba(16, 185, 129, 0.15) !important; /* Translucent emerald */
+  border-color: #10b981 !important;                      /* Emerald edge */
+  color: #34d399 !important;                              /* Bright text emerald */
 }
