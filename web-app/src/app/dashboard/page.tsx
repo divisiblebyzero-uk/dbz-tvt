@@ -4,6 +4,9 @@ import { KanbanBoardData, KanbanCard } from '@/types/kanban'
 import { Database } from '@/types/supabase'
 import { updateCardState } from '@/actions/kanban'
 import { revalidatePath } from 'next/cache'
+import LaneHeader from '@/components/kanban/LaneHeader'
+import MediaRowCard from '@/components/kanban/MediaRowCard'
+import UserProgressControl from '@/components/kanban/UserProgressControl'
 
 type KanbanState = Database['public']['Enums']['kanban_state']
 
@@ -46,7 +49,7 @@ export default async function DashboardPage() {
   mediaStates.forEach((row) => {
     const rawMedia = row.media_items
     const media: any = Array.isArray(rawMedia) ? rawMedia : rawMedia
-    
+
     if (!media || !media.id) return
 
     const profile = profiles.find((p) => p.id === row.profile_id)
@@ -69,7 +72,7 @@ export default async function DashboardPage() {
 
   Object.values(cardsMap).forEach((card) => {
     const states = Object.values(card.userStates).map((s) => s.state)
-    
+
     let targetLane: KanbanState = 'available'
     if (states.includes('watching')) targetLane = 'watching'
     else if (states.includes('prioritised')) targetLane = 'prioritised'
@@ -99,149 +102,122 @@ export default async function DashboardPage() {
     watching: { title: '📺 Watching', color: 'text-sky-400 bg-sky-950/20 border-sky-950/40', dot: 'bg-sky-400' },
     watched: { title: '✅ Done', color: 'text-indigo-400 bg-indigo-950/20 border-indigo-950/40', dot: 'bg-indigo-400' }
   }
+
+
+
+
+  /* =========================================================
+     STITCH COMPACT VIEWPORT WORKSPACE (SELF-CONTAINED ENGINE)
+     ========================================================= */
   return (
-    <main className="h-screen max-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden p-6 space-y-5 select-none">
+    <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#ffffff', color: '#0f172a', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
       
-      {/* Header Bar Row */}
-      <header className="flex flex-shrink-0 flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-900 pb-3.5">
-        <div className="flex flex-col md:flex-row md:items-center gap-6 flex-1 w-full">
+      {/* 1. Left Sidebar Fixed Command Console Panel */}
+      <aside style={{ width: '240px', flexShrink: 0, backgroundColor: '#f1f5f9', borderRight: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'between', height: '100%' }} className="justify-between">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div>
-            <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-2">🎬 Our Watchlist</h1>
-            <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">Collaborative Media Matrix</p>
+            <h2 style={{ fontSize: '14px', fontWeight: '900', letterSpacing: '0.05em', color: '#046a38', textTransform: 'uppercase', margin: 0 }}>Media Command</h2>
+            <p style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace', margin: '4px 0 0 0', fontWeight: 'bold' }}>V2.4.8 HIGH-DENSITY</p>
           </div>
-          <div className="w-full md:w-auto flex-1 max-w-md">
-            <AddMediaInput />
+          
+          {/* Sidebar Action Links */}
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', backgroundColor: '#ffffff', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: '1px solid rgba(226,232,240,0.5)', color: '#046a38' }}>📁 Library</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>⊞ Collections</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>📊 Analytics</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>📥 Import</span>
+          </nav>
+        </div>
+
+        {/* Action Button & Docs Footer */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <button style={{ width: '100%', backgroundColor: '#046a38', color: '#ffffff', fontWeight: '900', fontSize: '11px', padding: '10px 16px', borderRadius: '8px', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+            Add New Media
+          </button>
+          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', paddingLeft: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <p style={{ margin: 0, cursor: 'pointer' }}>📄 Docs</p>
+            <p style={{ margin: 0, cursor: 'pointer' }}>🛟 Help</p>
           </div>
         </div>
+      </aside>
+
+      {/* 2. Right Side Main Layout Workspace Panel */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%', padding: '24px', gap: '16px' }}>
         
-        <div className="flex gap-1.5 bg-slate-900/50 border border-slate-800/60 p-1.5 rounded-xl self-end md:self-center">
-          {profiles.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 text-xs font-bold bg-slate-950 border border-slate-900 px-3 py-1.5 rounded-lg shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {p.display_name}
+        {/* Top Navbar Row Header */}
+        <header style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'between', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }} className="justify-between">
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '-0.025em', color: '#0f172a', margin: 0 }}>Media Suite</h1>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, maxWidth: '512px', justifyContent: 'end' }} className="justify-end">
+            {/* Integrated Command Search Bar Layout Box Container Anchor */}
+            <div style={{ width: '100%', maxWidth: '384px' }}>
+              <AddMediaInput />
+            </div>
+            
+            {/* Split Profile Tracker Active Status Badges */}
+            <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(241,245,249,0.8)', border: '1px solid #e2e8f0', padding: '4px', borderRadius: '8px' }}>
+              {profiles.map((p) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 'bold', backgroundColor: '#ffffff', border: '1px solid rgba(226,232,240,0.5)', padding: '4px 10px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                  <span style={{ width: '4px', height: '4px', borderRadius: '9999px', backgroundColor: '#10b981' }} />
+                  {p.display_name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        {/* 3. 5-Column Compact Grid Board Workspace Matrix */}
+        <div className="kanban-board-grid">
+          {laneOrder.map((laneKey) => (
+            <div key={laneKey} className="kanban-lane">
+              
+              <LaneHeader 
+                laneKey={laneKey} 
+                title={laneMeta[laneKey].title} 
+                cardCount={board[laneKey].length} 
+              />
+              
+              <div className="kanban-scroll-area">
+                {board[laneKey].map((card) => {
+                  const providers = (card.media.streaming_services as any[]) || []
+                  const networkLabel = providers.length > 0 ? providers[0].name : 'Cable'
+                  const genresArr = String(card.media.genres || '').replace(/[{}"\\]/g, '').split(',').map(g => g.trim()).filter(Boolean);
+
+                  return (
+                    <MediaRowCard
+                      key={card.media.id}
+                      title={card.media.title}
+                      mediaType={card.media.type}
+                      networkLabel={networkLabel}
+                      genres={genresArr}
+                      description={card.media.description}
+                      rottenTomatoesScore={card.media.rotten_tomatoes_score}
+                      showWatchNowCTA={laneKey === 'prioritised'}
+                    >
+                      {Object.entries(card.userStates).map(([profileId, stateObj]) => (
+                        <UserProgressControl
+                          key={profileId}
+                          profileId={profileId}
+                          displayName={stateObj.displayName}
+                          currentState={stateObj.state}
+                          currentSeason={stateObj.currentSeason}
+                          mediaType={card.media.type}
+                          mediaItemId={card.media.id}
+                          laneOrder={laneOrder}
+                          onShiftAction={handleShiftColumn}
+                        />
+                      ))}
+                    </MediaRowCard>
+                  )
+                })}
+              </div>
+
             </div>
           ))}
         </div>
-      </header>
-
-      {/* 5-Column Side-by-Side Horizontal Desktop Matrix Grid Layout */}
-      <div className="kanban-board-grid">
-        {laneOrder.map((laneKey) => (
-          <div key={laneKey} className="kanban-lane shadow-xl">
-            
-            {/* Column Label Header Status Card */}
-            <div className={`flex flex-shrink-0 items-center justify-between px-3 py-2 border border-slate-800 rounded-xl mb-3 font-bold text-xs tracking-wide shadow-inner ${laneMeta[laneKey].color}`}>
-              <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${laneMeta[laneKey].dot}`} />
-                <span>{laneMeta[laneKey].title}</span>
-              </div>
-              <span className="font-mono text-[10px] bg-slate-950 border border-slate-800/80 px-2 py-0.5 rounded-md text-slate-400">
-                {board[laneKey].length}
-              </span>
-            </div>
-            
-            {/* Scrollable Lane Column container list */}
-            <div className="kanban-scroll-area space-y-2.5">
-              {board[laneKey].map((card) => {
-                const providers = (card.media.streaming_services as any[]) || []
-                const networkLabel = providers.length > 0 ? providers[0].name : 'Cable'
-
-                const genreText = String(card.media.genres || '')
-                  .replace(/[{}"\\]/g, '')
-                  .split(',')
-                  .map(g => g.trim())
-                  .filter(Boolean)
-
-                return (
-                  // 🟢 Simplified details block to let the inner row handle background parameters cleanly
-                  <details key={card.media.id} className="group block mb-2.5 outline-none select-none">
-                    
-                    {/* 🟢 Premium styled Summary row card featuring background depth definitions */}
-                    <summary className="card-summary-row p-3 hover:bg-slate-800/40 transition-colors">
-                      
-                      {/* Left align grouping elements (Title + Platform network badge) */}
-                      <div className="card-header-left">
-                        <h3 className="font-extrabold text-xs text-slate-100 tracking-tight group-open:text-white truncate">
-                          {laneKey === 'watched' && '✅ '}{card.media.title}
-                        </h3>
-                        
-                        <span className="network-badge-tag">
-                          {networkLabel}
-                        </span>
-                      </div>
-
-                      {/* Right align grouping elements (Clean padded charcoal genre pill capsules) */}
-                      {genreText.length > 0 && (
-                        <div className="flex gap-1.5 flex-shrink-0 items-center">
-                          {genreText.slice(0, 2).map((genreName, i) => (
-                            <span key={i} className="genre-pill-capsule">
-                              {genreName}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </summary>
-
-                    {/* 🟢 Expanded Drawer content panel matching our clean card layout bounds */}
-                    <div className="mx-1 mt-1.5 px-3.5 pb-3.5 pt-3 border-x border-b border-slate-800 bg-slate-900/20 rounded-b-xl space-y-3 font-normal shadow-md">
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="tracking-widest uppercase font-black px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-500">
-                          {card.media.type}
-                        </span>
-                        {card.media.rotten_tomatoes_score && (
-                          <span className="font-extrabold text-amber-500 bg-amber-500/5 px-2 py-0.5 border border-amber-500/10 rounded-md">
-                            🍅 {card.media.rotten_tomatoes_score}% RT Score
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-slate-400 leading-relaxed font-normal">
-                        {card.media.description}
-                      </p>
-
-                      {/* Progressive Individual Split User Progress Control Row Banners */}
-                      <div className="pt-2.5 border-t border-slate-800/40 space-y-2">
-                        {Object.entries(card.userStates).map(([profileId, stateObj]) => (
-                          <div key={profileId} className="flex flex-col gap-2 bg-slate-950/80 p-2.5 rounded-xl border border-slate-900/60">
-                            <div className="flex items-center justify-between text-[10px] font-bold">
-                              <span className="text-slate-400">{stateObj.displayName}:</span>
-                              <span className="text-slate-300 capitalize">
-                                {stateObj.state} {card.media.type === 'tv' && `(S${stateObj.currentSeason})`}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-1 mt-0.5">
-                              {laneOrder.map((stepState) => {
-                                if (stepState === stateObj.state) return null
-                                const label = stepState === 'prioritised' ? 'Shortlist' : stepState.replace('_', ' ')
-                                return (
-                                  <form key={stepState} action={handleShiftColumn} className="flex-1 min-w-[45%]">
-                                    <input type="hidden" name="profileId" value={profileId} />
-                                    <input type="hidden" name="mediaItemId" value={card.media.id} />
-                                    <input type="hidden" name="targetState" value={stepState} />
-                                    <button
-                                      type="submit"
-                                      className="w-full text-center text-[9px] font-extrabold px-1 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 hover:text-white rounded-md text-slate-400 uppercase tracking-tighter transition-all cursor-pointer"
-                                    >
-                                      ➔ {label.split(' ')}
-                                    </button>
-                                  </form>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                  </details>
-                )
-              })}
-            </div>
-
-          </div>
-        ))}
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
