@@ -13,7 +13,7 @@ graph TD
 
     subgraph Frontend Features
     A1[- Next.js 15 App Router & Async URL Params Engines]
-    A2[- High-Density Self-Contained Presentation Layers]
+    A2[- Native HTML5 Drag & Drop Interactive Boundaries]
     A3[- Dynamic Split/Collapse Data Transformer Matrix]
     end
 
@@ -30,8 +30,8 @@ graph TD
 ```
 
 ### Core Tech Stack Decisions
-*   **Frontend Framework**: Next.js 15 App Router. To guarantee styling safety and zero compilation blocks across Next.js asynchronous asset compilation channels during structural file changes, the presentation layer uses highly responsive, isolated inline styling attributes matching Stitch's light-mode command theme.
-*   **Database Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI. Local environment spins up via `supabase start` on Docker Desktop with explicit table permissions granted to the `anon` web client role to prevent `42501` access blocks.
+*   **Frontend Framework**: Next.js 15 App Router. Highly optimized drag-and-drop mechanics are achieved natively using the browser's lightweight HTML5 Drag and Drop API, eliminating heavy third-party node libraries. Interactivity gates are handled cleanly by separating stateless Server views from specialized client boundaries (`'use client'`).
+*   **Database Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI. Local environment spins up via `supabase start` on Docker Desktop with explicit table privileges granted to the `anon` web client role to prevent `42501` access blocks.
 *   **Open Source License**: GNU Affero General Public License v3.0 (AGPL-3.0) committed to the repository root.
 *   **Testing Suite**: Vitest + JSDOM for isolated test-driven server actions and component cleanup verifications.
 
@@ -62,9 +62,9 @@ graph TD
     │   │   └── layout.tsx          # Master layout component
     │   ├── components/kanban/      # UI Modular Elements
     │   │   ├── AddMediaInput.tsx   # Autocomplete input box + browser searchParams URL filter router
+    │   │   ├── KanbanLaneUI.tsx    # Interactive client-side drop context container lane wrapper
     │   │   ├── LaneHeader.tsx      # High-density light columns metrics and color status dots
-    │   │   ├── MediaRowCard.tsx    # Expandable drawer container with embedded Stitch status pills
-    │   │   └── UserProgressControl.tsx # Scoped husband/wife divergent tracking controllers & forms
+    │   │   └── MediaRowCard.tsx    # Expandable draggable container with embedded Stitch status pills
     │   └── types/                  # Database-generated TypeScript interfaces & kanban.ts structures
     ├── middleware.ts               # Core route protection gate interception script
     ├── vitest.config.ts            # Vitest unit execution pipeline settings
@@ -106,11 +106,11 @@ Tracks individual progress mapping entries. Interest is implicitly represented b
 
 ## 4. Current Progress & UI Fixes Applied
 
+*   **Native Drag & Drop State Transitions**: Swapped static clunky button selectors for seamless, performant HTML5 Drag and Drop interactions. Cards can be moved fluidly between lanes, invoking Next.js server mutations on drop.
+*   **UI Architecture Factorization**: Abstracted layout-agnostic interfaces into clean interactive boundaries (`KanbanLaneUI` drop-zones, `MediaRowCard` drag-emitters), safely deleting the obsolete `UserProgressControl.tsx` button component.
+*   **JSONB Array Access Typings Patched**: Corrected a strict type checking gate warning by explicitly targeting array index `0` (`providers[0].name`) when reading streaming platform meta-cache records.
 *   **Multi-User Data Model Pivot Complete**: Simplified state tracking mechanics down to four fundamental entities (`long_list`, `short_list`, `watching`, `watched`). 
 *   **Database Availability Integrity Constraint**: Implemented a Postgres check constraint (`check_streaming_availability`) that automatically rejects items lacking active streaming provider arrays from entering tracking lanes.
-*   **Table Role Level Permissions Configured**: Extended explicit `SELECT, INSERT, UPDATE, DELETE` grants to the `anon` developer role inside the core initialization script to resolve Postgres `42501` permission errors.
-*   **Next.js 15 Asynchronous Compatibility Patched**: Updated `DashboardPage` and `AddMediaInput` to support Next.js 15's async `searchParams` promise un-wrapping natively.
-*   **Frontend Splitting & Collapsing Transformer Matrix**: Implemented an automated loop engine that collapses convergent items (*Game of Thrones*) into a single consolidated row card with a `Both` tag, while splitting divergent items (*Fight Club*) across separate functional columns concurrently with independent `Husband` and `Wife` identifier badges.
 
 ---
 

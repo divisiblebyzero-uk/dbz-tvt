@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import AddMediaInput from '@/components/kanban/AddMediaInput'
-import LaneHeader from '@/components/kanban/LaneHeader'
+import KanbanLaneUI from '@/components/kanban/KanbanLaneUI'
 import MediaRowCard from '@/components/kanban/MediaRowCard'
-import UserProgressControl from '@/components/kanban/UserProgressControl'
 import { UIKanbanBoard, UIKanbanCard, KanbanState } from '@/types/kanban'
 import { updateCardState } from '@/actions/kanban'
 import { revalidatePath } from 'next/cache'
@@ -222,78 +221,74 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </header>
 
-        {/* 5-Column Side-by-Side Flex Layout Matrix Engine Container Grid */}
+        {/* 3. 5-Column Compact Grid Board Workspace Matrix */}
         <div className="kanban-board-grid">
           {laneOrder.map((laneKey) => (
-            <div key={laneKey} className="kanban-lane">
-              
-              {/* Lane Header Added Back into Render Matrix Stack */}
-              <LaneHeader 
-                laneKey={laneKey} 
-                title={laneTitles[laneKey]} 
-                cardCount={board[laneKey].length} 
-              />
-              
-              <div className="kanban-scroll-area">
-                {board[laneKey].map((card) => {
-                  const providers = (card.media.streaming_services as any[]) || []
-                  const networkLabel = providers.length > 0 ? providers[0].name : 'Cable'
-                  const genresArr = String(card.media.genres || '').replace(/[{}"\\]/g, '').split(',').map(g => g.trim()).filter(Boolean);
+            <KanbanLaneUI
+              key={laneKey}
+              laneKey={laneKey}
+              title={laneTitles[laneKey]}
+              cardCount={board[laneKey].length}
+              // 🟢 Safe dynamic Server Action bridge function passed securely to client
+              onCardDropped={async (mediaItemId, profileId, targetState) => {
+                'use server'
+                const mockForm = new FormData()
+                mockForm.append('mediaItemId', mediaItemId)
+                mockForm.append('profileId', profileId)
+                mockForm.append('targetState', targetState)
+                await handleShiftColumn(mockForm)
+              }}
+            >
+              {board[laneKey].map((card) => {
+                const providers = (card.media.streaming_services as any[]) || []
+                const networkLabel = providers.length > 0 ? providers[0].name : 'Cable'
+                const genresArr = String(card.media.genres || '').replace(/[{}"\\]/g, '').split(',').map(g => g.trim()).filter(Boolean);
 
-                  return (
-                    <MediaRowCard
-                      key={card.uniqueUiKey}
-                      title={card.media.title}
-                      mediaType={card.media.type}
-                      networkLabel={networkLabel}
-                      genres={genresArr}
-                      displayTags={card.displayTags}
-                      description={card.media.description}
-                      rottenTomatoesScore={card.media.rotten_tomatoes_score}
-                      showWatchNowCTA={laneKey === 'short_list'}
-                    >
-                      {/* Render progress handlers scoped explicitly to active card layout bounds */}
-                      {card.trackingProfileId === 'collapsed' ? (
-                        profiles.map((p) => {
-                          const stateObj = userStates?.find(s => s.media_item_id === card.media.id && s.profile_id === p.id)
-                          return (
-                            <UserProgressControl
-                              key={p.id}
-                              profileId={p.id}
-                              displayName={p.display_name.replace(' Test', '')}
-                              currentState={stateObj?.state || 'long_list'}
-                              currentSeason={stateObj?.current_season || 1}
-                              mediaType={card.media.type}
-                              mediaItemId={card.media.id}
-                              laneOrder={laneOrder.filter(l => l !== 'not_available')}
-                              onShiftAction={handleShiftColumn}
-                            />
-                          )
-                        })
-                      ) : (
-                        (() => {
-                          const activeProfile = profiles.find(p => p.id === card.trackingProfileId)
-                          if (!activeProfile) return null
-                          return (
-                            <UserProgressControl
-                              profileId={card.trackingProfileId}
-                              displayName={activeProfile.display_name.replace(' Test', '')}
-                              currentState={laneKey}
-                              currentSeason={card.currentSeason}
-                              mediaType={card.media.type}
-                              mediaItemId={card.media.id}
-                              laneOrder={laneOrder.filter(l => l !== 'not_available')}
-                              onShiftAction={handleShiftColumn}
-                            />
-                          )
-                        })()
-                      )}
-                    </MediaRowCard>
-                  )
-                })}
-              </div>
-
-            </div>
+                return (
+                  <MediaRowCard
+                    key={card.uniqueUiKey}
+                    uniqueUiKey={card.uniqueUiKey}
+                    mediaItemId={card.media.id}
+                    profileId={card.trackingProfileId}
+                    title={card.media.title}
+                    mediaType={card.media.type}
+                    networkLabel={networkLabel}
+                    genres={genresArr}
+                    displayTags={card.displayTags}
+                    description={card.media.description}
+                    rottenTomatoesScore={card.media.rotten_tomatoes_score}
+                    showWatchNowCTA={laneKey === 'short_list'}
+                  >
+                    {card.trackingProfileId === 'collapsed' ? (
+                      profiles.map((p) => {
+                        const stateObj = userStates?.find(s => s.media_item_id === card.media.id && s.profile_id === p.id)
+                        return (
+                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', backgroundColor: '#ffffff', padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontWeight: 'bold' }}>{p.display_name.replace(' Test', '')}:</span>
+                            <span style={{ textTransform: 'capitalize', color: '#334155', fontWeight: '600' }}>
+                              {stateObj?.state.replace('_', ' ') || 'Long List'} {card.media.type === 'tv' && `(S${stateObj?.current_season || 1})`}
+                            </span>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      (() => {
+                        const activeProfile = profiles.find(p => p.id === card.trackingProfileId)
+                        if (!activeProfile) return null
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', backgroundColor: '#ffffff', padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontWeight: 'bold' }}>{activeProfile.display_name.replace(' Test', '')}:</span>
+                            <span style={{ textTransform: 'capitalize', color: '#334155', fontWeight: '600' }}>
+                              {laneKey.replace('_', ' ')} {card.media.type === 'tv' && `(S${card.currentSeason})`}
+                            </span>
+                          </div>
+                        )
+                      })()
+                    )}
+                  </MediaRowCard>
+                )
+              })}
+            </KanbanLaneUI>
           ))}
         </div>
       </main>

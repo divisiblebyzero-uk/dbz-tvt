@@ -1,11 +1,16 @@
+'use client' // 🟢 ADD THIS DIRECTIVE TO UNLOCK THE INTERACTIVE BOUNDARY
+
 import React from 'react'
 
 interface MediaRowCardProps {
+  uniqueUiKey: string;      
+  mediaItemId: string;      
+  profileId: string;        
   title: string;
   mediaType: 'movie' | 'tv';
   networkLabel: string;
   genres: string[];
-  displayTags: ('Husband' | 'Wife' | 'Both')[]; // 🟢 Added user tags array parameter
+  displayTags: ('Husband' | 'Wife' | 'Both')[];
   description?: string | null;
   rottenTomatoesScore?: number | null;
   showWatchNowCTA: boolean;
@@ -13,6 +18,9 @@ interface MediaRowCardProps {
 }
 
 export default function MediaRowCard({
+  uniqueUiKey,
+  mediaItemId,
+  profileId,
   title,
   mediaType,
   networkLabel,
@@ -24,7 +32,19 @@ export default function MediaRowCard({
   children
 }: MediaRowCardProps) {
   return (
-    <details style={{ display: 'block', outline: 'none', userSelect: 'none', marginBottom: '8px' }}>
+    <details 
+      draggable="true"
+      onDragStart={(e) => {
+        e.dataTransfer.setData('mediaItemId', mediaItemId)
+        e.dataTransfer.setData('profileId', profileId)
+        e.dataTransfer.effectAllowed = 'move'
+        e.currentTarget.style.opacity = '0.4'
+      }}
+      onDragEnd={(e) => {
+        e.currentTarget.style.opacity = '1'
+      }}
+      style={{ display: 'block', outline: 'none', userSelect: 'none', marginBottom: '8px', cursor: 'grab', transition: 'opacity 0.15s ease' }}
+    >
       
       {/* Compact Main Single-Row Heading Frame */}
       <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>
@@ -41,11 +61,10 @@ export default function MediaRowCard({
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
           {genres.length > 0 && (
             <span style={{ fontSize: '8px', fontWeight: 'bold', color: '#94a3b8', border: '1px solid #f1f5f9', backgroundColor: '#f8fafc', padding: '2px 4px', borderRadius: '2px' }}>
-              {genres[0]}
+              {genres}
             </span>
           )}
           
-          {/* 🟢 Render Stitch's profile tracking badges natively */}
           {displayTags.map((tag) => (
             <span 
               key={tag}
