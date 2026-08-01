@@ -2,16 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { searchMediaAutocomplete, addMediaToDatabase } from '@/actions/tmdb'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation' // 🟢 Added useSearchParams hook
 
 export default function AddMediaInput() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [assignTo, setAssignTo] = useState<'both' | 'husband' | 'wife'>('both')
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // 🟢 Dynamically synchronize internal button states with the browser URL parameters
+  const currentUrlView = (searchParams.get('view') as 'both' | 'husband' | 'wife') || 'both'
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -43,7 +46,7 @@ export default function AddMediaInput() {
     setResults([])
     setQuery('')
     
-    const res = await addMediaToDatabase({ tmdbId, mediaType: type, assignTo })
+    const res = await addMediaToDatabase({ tmdbId, mediaType: type, assignTo: currentUrlView })
     if (res.success) {
       router.refresh()
     } else {
@@ -51,21 +54,28 @@ export default function AddMediaInput() {
     }
   }
 
-  /* =========================================================
-     STITCH COMPACT PREMIUM CONTROL PANEL VIEWPORT MARGINS
-     ========================================================= */
+  // 🟢 Dynamic URL parameter navigator: Forces the server layout to revalidate instantly
+  function handleFilterToggle(targetView: 'both' | 'husband' | 'wife') {
+    if (targetView === 'both') {
+      router.push('/dashboard') // Baseline default query view
+    } else {
+      router.push(`/dashboard?view=${targetView}`)
+    }
+  }
+
   return (
     <div ref={dropdownRef} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', position: 'relative' }}>
       
       {/* 1. Tactile Slider Filter Track Button Bar Toggle */}
       <div style={{ display: 'flex', gap: '2px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', padding: '3px', borderRadius: '8px', flexShrink: 0 }}>
         {(['both', 'husband', 'wife'] as const).map((mode) => {
-          const isActive = assignTo === mode
+          // 🟢 Evaluation tracks URL parameter directly now
+          const isActive = currentUrlView === mode 
           return (
             <button
               key={mode}
               type="button"
-              onClick={() => setAssignTo(mode)}
+              onClick={() => handleFilterToggle(mode)} // 🟢 Binds parameter route navigation
               style={{
                 textTransform: 'capitalize',
                 fontSize: '10px',

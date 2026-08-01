@@ -8,19 +8,19 @@ The application uses a modern, serverless SaaS architecture optimized for real-t
 
 ```mermaid
 graph TD
-    A[Frontend: Next.js on Vercel] -->|HTTPS / WebSockets| B[Backend & Database: Supabase]
+    A[Frontend: Next.js 15 Engine on Vercel] -->|HTTPS / WebSockets| B[Backend & Database: Supabase]
     B -->|External API Fetch| C[Upstream APIs: TMDB & OMDb]
 
     subgraph Frontend Features
-    A1[- Next.js 14 App Router + Tailwind CSS v4 Engine]
-    A2[- High-Density HTML5 details Inline Summary Rows]
-    A3[- Local Dev Bypass Auth & Slider Component Filters]
+    A1[- Next.js 15 App Router & Async URL Params Engines]
+    A2[- High-Density Self-Contained Presentation Layers]
+    A3[- Dynamic Split/Collapse Data Transformer Matrix]
     end
 
     subgraph Backend Features
-    B1[- PostgreSQL Database: Decoupled Relational storage]
-    B2[- Supabase Auth & Webhook Auto-Provisioned Profiles]
-    B3[- Server Actions & middleware.ts: Edge Network Barriers]
+    B1[- PostgreSQL Database: Multi-User Relational storage]
+    B2[- Decoupled User Tracking State Integrity Functions]
+    B3[- Explicit Database Role Level Privilege Grants]
     end
 
     subgraph External Fetch Features
@@ -30,8 +30,8 @@ graph TD
 ```
 
 ### Core Tech Stack Decisions
-*   **Frontend Framework**: Next.js 14 App Router with the **Tailwind CSS v4** Oxide styling compiler architecture.
-*   **Database Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI with custom database table privileges explicitly granted to the `anon` developer role.
+*   **Frontend Framework**: Next.js 15 App Router. To guarantee styling safety and zero compilation blocks across Next.js asynchronous asset compilation channels during structural file changes, the presentation layer uses highly responsive, isolated inline styling attributes matching Stitch's light-mode command theme.
+*   **Database Infrastructure**: Supabase (PostgreSQL) managed programmatically via the Supabase CLI. Local environment spins up via `supabase start` on Docker Desktop with explicit table permissions granted to the `anon` web client role to prevent `42501` access blocks.
 *   **Open Source License**: GNU Affero General Public License v3.0 (AGPL-3.0) committed to the repository root.
 *   **Testing Suite**: Vitest + JSDOM for isolated test-driven server actions and component cleanup verifications.
 
@@ -43,12 +43,12 @@ graph TD
 /media-tracker-repo
 ├── .github/workflows/
 │   ├── deploy-frontend.yml     # Vercel deployment pipeline
-│   └── supabase-migrate.yml    # Supabase DB CI/CD migration pipeline
+│   └── supabase-migrate.yml    # Supabase DB CI/CD migration pipeline (Muted via workflow_dispatch)
 ├── supabase/                       # Managed via Supabase CLI
 │   ├── config.toml                 # Allowed redirect URLs configuration array
-│   ├── seed.sql                    # Automagic mock data loader (Husband/Wife divergent progress)
+│   ├── seed.sql                    # Automagic mock data loader (Seeded multi-user split/collapse rows)
 │   └── migrations/                 # Local programmatic database state history
-│       └── 20260729000000_init.sql # Database schema, enums, triggers, and permissive anon/auth RLS
+│       └── 20260729000000_init.sql # Relational schemas, enums, triggers, and table privilege grants
 └── web-app/                        # Next.js Frontend Core Container
     ├── src/
     │   ├── actions/                # Server Actions
@@ -58,12 +58,14 @@ graph TD
     │   │   ├── auth/callback/      # OAuth session handshake route
     │   │   ├── dashboard/          # Main single-viewport 5-column Kanban board view
     │   │   ├── login/              # Entry screen with Google Auth & Dev Bypass toggles
-    │   │   ├── globals.css         # Tailwind v4 engine configurations and inline row style overrides
+    │   │   ├── globals.css         # Reset stylesheet and 5-column horizontal layout frame
     │   │   └── layout.tsx          # Master layout component
-    │   ├── components/kanban/      # UI Layout Elements
-    │   │   ├── AddMediaInput.tsx   # Premium dark charcoal search bar and slide-track selectors
-    │   │   └── ProgressBadge.tsx   # Unit-tested individual split user progress indicators
-    │   └── types/                  # Database-generated TypeScript interfaces & kaban.ts structures
+    │   ├── components/kanban/      # UI Modular Elements
+    │   │   ├── AddMediaInput.tsx   # Autocomplete input box + browser searchParams URL filter router
+    │   │   ├── LaneHeader.tsx      # High-density light columns metrics and color status dots
+    │   │   ├── MediaRowCard.tsx    # Expandable drawer container with embedded Stitch status pills
+    │   │   └── UserProgressControl.tsx # Scoped husband/wife divergent tracking controllers & forms
+    │   └── types/                  # Database-generated TypeScript interfaces & kanban.ts structures
     ├── middleware.ts               # Core route protection gate interception script
     ├── vitest.config.ts            # Vitest unit execution pipeline settings
     └── package.json                # Single-tier app dependency nodes and testing execution triggers
@@ -87,28 +89,28 @@ Central cache for movie/TV show metadata to eliminate duplicate network lookup o
 *   `title`: TEXT
 *   `type`: ENUM ('movie', 'tv')
 *   `description`: TEXT
-*   `rotten_tomatoes_score`: INT
+*   `rotten_tomatoes_score`: INT (Supports `null` values cleanly via explicit interfaces)
 *   `streaming_services`: JSONB (Array of names and platform logo urls)
 *   `genres`: TEXT[]
 *   `total_seasons`: INT
 
 ### `user_media_states`
-Tracks individual progress mapping entries. Handles multi-user divergent tracking metrics on identical shows (e.g., Husband on Season 2, Wife on Season 1 simultaneously).
+Tracks individual progress mapping entries. Interest is implicitly represented by the presence of a row record.
 *   `id`: UUID (Primary Key)
 *   `profile_id`: UUID (Foreign Key -> `profiles.id`)
 *   `media_item_id`: UUID (Foreign Key -> `media_items.id`)
-*   `state`: ENUM ('not_available', 'available', 'prioritised', 'watching', 'watched')
+*   `state`: ENUM ('long_list', 'short_list', 'watching', 'watched')
 *   `current_season`: INT (Defaults to 1)
 
 ---
 
 ## 4. Current Progress & UI Fixes Applied
 
-*   **Single Viewport Grid Constraints**: Configured layout mechanics (`h-screen`, `overflow-hidden`, and `kanban-scroll-area`) to lock the entire 5-column dashboard within a single monitor screen frame without global page scrolling.
-*   **High-Density Inline Accordions**: Implemented HTML5 `<details>` and `<summary>` components to keep the Kanban interface compact, allowing cards to open downwards in place when clicked.
-*   **Layout Alignment Corrected**: Overrode Tailwind v4 block configurations with a dedicated CSS inline row layout. The cards now feature an executive summary row containing **Title ➔ Network Badge ➔ Mapped Genre Capsule Pills** sitting completely on a single line.
-*   **Premium Background Aesthetics**: Added a distinct dark charcoal surface background color (`#0f172a`), border framing, and shadow depth to the rows to separate them cleanly from the lane columns.
-*   **Input Form Transformation**: Refactored the search layout container to use a dark-glass entry box input field and a sliding-pill green selector element block.
+*   **Multi-User Data Model Pivot Complete**: Simplified state tracking mechanics down to four fundamental entities (`long_list`, `short_list`, `watching`, `watched`). 
+*   **Database Availability Integrity Constraint**: Implemented a Postgres check constraint (`check_streaming_availability`) that automatically rejects items lacking active streaming provider arrays from entering tracking lanes.
+*   **Table Role Level Permissions Configured**: Extended explicit `SELECT, INSERT, UPDATE, DELETE` grants to the `anon` developer role inside the core initialization script to resolve Postgres `42501` permission errors.
+*   **Next.js 15 Asynchronous Compatibility Patched**: Updated `DashboardPage` and `AddMediaInput` to support Next.js 15's async `searchParams` promise un-wrapping natively.
+*   **Frontend Splitting & Collapsing Transformer Matrix**: Implemented an automated loop engine that collapses convergent items (*Game of Thrones*) into a single consolidated row card with a `Both` tag, while splitting divergent items (*Fight Club*) across separate functional columns concurrently with independent `Husband` and `Wife` identifier badges.
 
 ---
 

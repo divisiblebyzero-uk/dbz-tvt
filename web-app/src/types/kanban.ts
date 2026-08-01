@@ -1,22 +1,21 @@
-import { Database } from './supabase'
+export type KanbanState = 'long_list' | 'short_list' | 'watching' | 'watched' | 'not_available';
 
-// Pull properties natively from your database-generated types file
-type MediaItem = Database['public']['Tables']['media_items']['Row']
-type KanbanState = Database['public']['Enums']['kanban_state']
-
-export interface KanbanCard {
-  media: MediaItem
-  // Tracks progression states indexed by the profile id keys
-  userStates: {
-    [profileId: string]: {
-      displayName: string
-      avatarUrl: string | null
-      state: KanbanState
-      currentSeason: number
-    }
-  }
+export interface UIKanbanCard {
+  uniqueUiKey: string; // E.g. "media-123-husband" or "media-123-both" to bypass React key clashes
+  media: {
+    id: string;
+    title: string;
+    type: 'movie' | 'tv';
+    streaming_services: any[];
+    genres: string[];
+    rotten_tomatoes_score: number | null;
+    description: string | null;
+  };
+  displayTags: ('Husband' | 'Wife' | 'Both')[];
+  trackingProfileId: string | 'collapsed'; // Informs the shift action form exactly which row to mutate
+  currentSeason: number;
 }
 
-export type KanbanBoardData = {
-  [lane in KanbanState]: KanbanCard[]
-}
+export type UIKanbanBoard = {
+  [key in KanbanState]: UIKanbanCard[];
+};

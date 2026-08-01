@@ -1,126 +1,189 @@
 import { createClient } from '@/lib/supabase/server'
 import AddMediaInput from '@/components/kanban/AddMediaInput'
-import { KanbanBoardData, KanbanCard } from '@/types/kanban'
-import { Database } from '@/types/supabase'
-import { updateCardState } from '@/actions/kanban'
-import { revalidatePath } from 'next/cache'
 import LaneHeader from '@/components/kanban/LaneHeader'
 import MediaRowCard from '@/components/kanban/MediaRowCard'
 import UserProgressControl from '@/components/kanban/UserProgressControl'
+import { UIKanbanBoard, UIKanbanCard, KanbanState } from '@/types/kanban'
+import { updateCardState } from '@/actions/kanban'
+import { revalidatePath } from 'next/cache'
 
-type KanbanState = Database['public']['Enums']['kanban_state']
+interface PageProps {
+  searchParams: { view?: 'both' | 'husband' | 'wife' }
+}
 
-export default async function DashboardPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ view?: 'both' | 'husband' | 'wife' }> }) {
+  
+  // 🟢 2. Explicitly unwrap and await the parameters before accessing properties
+  const resolvedParams = await searchParams
+  const currentView = resolvedParams.view || 'both'
   const supabase = await createClient()
 
-  // 1. Extract database user profiles and progress trackers
-  const { data: profiles } = await supabase.from('profiles').select('*')
-  const { data: mediaStates } = await supabase
-    .from('user_media_states')
-    .select(`
-      state,
-      current_season,
-      profile_id,
-      media_items (*)
-    `)
+  // 1. Fetch live metrics from Supabase database layers
+  const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*')
+  const { data: mediaItems, error: mediaItemsError } = await supabase.from('media_items').select('*')
+  const { data: userStates, error: userStatesError } = await supabase.from('user_media_states').select('*')
 
-  const board: KanbanBoardData = {
+  const board: UIKanbanBoard = {
     not_available: [],
-    available: [],
-    prioritised: [],
+    long_list: [],
+    short_list: [],
     watching: [],
     watched: []
   }
 
-  if (!mediaStates || !profiles || mediaStates.length === 0) {
-    return (
-      <main className="min-h-screen bg-slate-950 p-8 flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-sm">
-          <h1 className="text-2xl font-black text-white">🎬 Our Watchlist</h1>
-          <p className="text-xs text-slate-400">No active tracking items discovered inside your local database.</p>
-          <AddMediaInput />
-        </div>
-      </main>
-    )
-  }
+  if (!profiles || !mediaItems) return null
 
-  const cardsMap: { [mediaId: string]: KanbanCard } = {}
+  const husbandProfile = profiles.find(p => p.display_name.toLowerCase().includes('husband')) || profiles[0]
+  const wifeProfile = profiles.find(p => p.display_name.toLowerCase().includes('wife')) || profiles[1] || profiles[0]
 
-  mediaStates.forEach((row) => {
-    const rawMedia = row.media_items
-    const media: any = Array.isArray(rawMedia) ? rawMedia : rawMedia
+  // 2. 🟢 THE COLLAPSING & SPLITTING TRANSFORMER MATRIX ENGINE
+  // 2. 🟢 FIXED RESILIENT COLLAPSING & SPLITTING TRANSFORMER MATRIX ENGINE
+  mediaItems.forEach((media) => {
+    const providers = (media.streaming_services as any[]) || []
+    
+    // Rule A: Drive items with no subscription services into "Not Available" instantly
+    if (providers.length === 0) {
+      board.not_available.push({
+        uniqueUiKey: `media-${media.id}-na`,
+        media,
+        displayTags: ['Both'],
+        trackingProfileId: 'collapsed',
+        currentSeason: 1
+      })
+      return
+    }
 
-    if (!media || !media.id) return
+    // Isolate individual row states safely (falling back to undefined gracefully)
+    const hState = userStates?.find(s => s.media_item_id === media.id && s.profile_id === husbandProfile?.id)
+    const wState = userStates?.find(s => s.media_item_id === media.id && s.profile_id === wifeProfile?.id)
 
-    const profile = profiles.find((p) => p.id === row.profile_id)
-    if (!profile) return
+    // Execute sorting actions based on top bar filter choices
+    if (currentView === 'husband') {
+      if (!hState) return // Skip item if Husband has no logged interest
+      board[hState.state as KanbanState].push({
+        uniqueUiKey: `media-${media.id}-h`,
+        media,
+        displayTags: ['Husband'],
+        trackingProfileId: hState.profile_id,
+        currentSeason: hState.current_season
+      })
+    } 
+    else if (currentView === 'wife') {
+      if (!wState) return // Skip item if Wife has no logged interest
+      board[wState.state as KanbanState].push({
+        uniqueUiKey: `media-${media.id}-w`,
+        media,
+        displayTags: ['Wife'],
+        trackingProfileId: wState.profile_id,
+        currentSeason: wState.current_season
+      })
+    } 
+    else {
+      // ═► VIEW FILTER = "BOTH" (Stitch's dynamic collaborative fallback logic)
+      
+      // Check for structural baseline status states explicitly
+      const hasHusbandInterest = !!hState;
+      const hasWifeInterest = !!wState;
 
-    if (!cardsMap[media.id]) {
-      cardsMap[media.id] = {
-        media: media,
-        userStates: {}
+      if (!hasHusbandInterest && !hasWifeInterest) {
+        // 🟢 Robust Fallback: Item has providers but NO user tracking states yet.
+        // Drops onto the Long List column as an open shared baseline tracking element.
+        board.long_list.push({
+          uniqueUiKey: `media-${media.id}-unassigned`,
+          media,
+          displayTags: ['Both'],
+          trackingProfileId: 'collapsed',
+          currentSeason: 1
+        })
+      } 
+      else if (hasHusbandInterest && hasWifeInterest) {
+        if (hState.state === wState.state) {
+          // Condition 1: Convergent matching status lanes -> COLLAPSE into single row card
+          board[hState.state as KanbanState].push({
+            uniqueUiKey: `media-${media.id}-both`,
+            media,
+            displayTags: ['Both'],
+            trackingProfileId: 'collapsed',
+            currentSeason: Math.max(hState.current_season, wState.current_season)
+          })
+        } else {
+          // Condition 2: Divergent states -> SPLIT into distinct structural columns concurrently
+          board[hState.state as KanbanState].push({
+            uniqueUiKey: `media-${media.id}-split-h`,
+            media,
+            displayTags: ['Husband'],
+            trackingProfileId: hState.profile_id,
+            currentSeason: hState.current_season
+          })
+          board[wState.state as KanbanState].push({
+            uniqueUiKey: `media-${media.id}-split-w`,
+            media,
+            displayTags: ['Wife'],
+            trackingProfileId: wState.profile_id,
+            currentSeason: wState.current_season
+          })
+        }
+      } 
+      else if (hasHusbandInterest && !hasWifeInterest) {
+        // Single user interest only (Husband)
+        board[hState.state as KanbanState].push({
+          uniqueUiKey: `media-${media.id}-h-only`,
+          media,
+          displayTags: ['Husband'],
+          trackingProfileId: hState.profile_id,
+          currentSeason: hState.current_season
+        })
+      } 
+      else if (!hasHusbandInterest && hasWifeInterest) {
+        // Single user interest only (Wife)
+        board[wState.state as KanbanState].push({
+          uniqueUiKey: `media-${media.id}-w-only`,
+          media,
+          displayTags: ['Wife'],
+          trackingProfileId: wState.profile_id,
+          currentSeason: wState.current_season
+        })
       }
     }
-
-    cardsMap[media.id].userStates[profile.id] = {
-      displayName: profile.display_name,
-      avatarUrl: profile.avatar_url,
-      state: row.state as KanbanState,
-      currentSeason: row.current_season
-    }
   })
 
-  Object.values(cardsMap).forEach((card) => {
-    const states = Object.values(card.userStates).map((s) => s.state)
-
-    let targetLane: KanbanState = 'available'
-    if (states.includes('watching')) targetLane = 'watching'
-    else if (states.includes('prioritised')) targetLane = 'prioritised'
-    else if (states.includes('available')) targetLane = 'available'
-    else if (states.includes('not_available')) targetLane = 'not_available'
-    else if (states.every((s) => s === 'watched')) targetLane = 'watched'
-
-    board[targetLane].push(card)
-  })
-
+  // Handle column switcher mutations
   async function handleShiftColumn(formData: FormData) {
     'use server'
     const profileId = formData.get('profileId') as string
     const mediaItemId = formData.get('mediaItemId') as string
-    const targetState = formData.get('targetState') as KanbanState
+    const targetState = formData.get('targetState') as any
 
-    await updateCardState({ profileId, mediaItemId, newState: targetState })
+    // If an item was unassigned/collapsed, perform updates across default profile IDs safely
+    if (profileId === 'collapsed') {
+      if (husbandProfile) await updateCardState({ profileId: husbandProfile.id, mediaItemId, newState: targetState })
+      if (wifeProfile) await updateCardState({ profileId: wifeProfile.id, mediaItemId, newState: targetState })
+    } else {
+      await updateCardState({ profileId, mediaItemId, newState: targetState })
+    }
     revalidatePath('/dashboard')
   }
 
-  const laneOrder: KanbanState[] = ['not_available', 'available', 'prioritised', 'watching', 'watched']
-
-  const laneMeta: { [key in KanbanState]: { title: string; color: string; dot: string } } = {
-    not_available: { title: '🍿 Not Available', color: 'text-slate-400 bg-slate-900/40 border-slate-800', dot: 'bg-slate-500' },
-    available: { title: '🟢 Available', color: 'text-emerald-400 bg-emerald-950/20 border-emerald-950/40', dot: 'bg-emerald-400' },
-    prioritised: { title: '🔥 Shortlist', color: 'text-amber-400 bg-amber-950/20 border-amber-950/40', dot: 'bg-amber-400' },
-    watching: { title: '📺 Watching', color: 'text-sky-400 bg-sky-950/20 border-sky-950/40', dot: 'bg-sky-400' },
-    watched: { title: '✅ Done', color: 'text-indigo-400 bg-indigo-950/20 border-indigo-950/40', dot: 'bg-indigo-400' }
+  const laneOrder: KanbanState[] = ['not_available', 'long_list', 'short_list', 'watching', 'watched']
+  const laneTitles: { [key in KanbanState]: string } = {
+    not_available: '🍿 Not Available',
+    long_list: '📋 Long List',
+    short_list: '🔥 Shortlist',
+    watching: '📺 Watching',
+    watched: '✅ Watched'
   }
-
-
-
-
-  /* =========================================================
-     STITCH COMPACT VIEWPORT WORKSPACE (SELF-CONTAINED ENGINE)
-     ========================================================= */
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#ffffff', color: '#0f172a', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
       
-      {/* 1. Left Sidebar Fixed Command Console Panel */}
-      <aside style={{ width: '240px', flexShrink: 0, backgroundColor: '#f1f5f9', borderRight: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'between', height: '100%' }} className="justify-between">
+      {/* Sidebar Console Link Rows */}
+      <aside style={{ width: '240px', flexShrink: 0, backgroundColor: '#f1f5f9', borderRight: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div>
             <h2 style={{ fontSize: '14px', fontWeight: '900', letterSpacing: '0.05em', color: '#046a38', textTransform: 'uppercase', margin: 0 }}>Media Command</h2>
             <p style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace', margin: '4px 0 0 0', fontWeight: 'bold' }}>V2.4.8 HIGH-DENSITY</p>
           </div>
-          
-          {/* Sidebar Action Links */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', backgroundColor: '#ffffff', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: '1px solid rgba(226,232,240,0.5)', color: '#046a38' }}>📁 Library</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>⊞ Collections</span>
@@ -128,8 +191,6 @@ export default async function DashboardPage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>📥 Import</span>
           </nav>
         </div>
-
-        {/* Action Button & Docs Footer */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <button style={{ width: '100%', backgroundColor: '#046a38', color: '#ffffff', fontWeight: '900', fontSize: '11px', padding: '10px 16px', borderRadius: '8px', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
             Add New Media
@@ -141,41 +202,35 @@ export default async function DashboardPage() {
         </div>
       </aside>
 
-      {/* 2. Right Side Main Layout Workspace Panel */}
+      {/* Workspace Area Frame Grid */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%', padding: '24px', gap: '16px' }}>
-        
-        {/* Top Navbar Row Header */}
-        <header style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'between', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }} className="justify-between">
-          <div>
-            <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '-0.025em', color: '#0f172a', margin: 0 }}>Media Suite</h1>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, maxWidth: '512px', justifyContent: 'end' }} className="justify-end">
-            {/* Integrated Command Search Bar Layout Box Container Anchor */}
+        <header style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
+
+          <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '-0.025em', color: '#0f172a', margin: 0 }}>Media Suite</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, maxWidth: '512px', justifyContent: 'end' }}>
             <div style={{ width: '100%', maxWidth: '384px' }}>
               <AddMediaInput />
             </div>
-            
-            {/* Split Profile Tracker Active Status Badges */}
             <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(241,245,249,0.8)', border: '1px solid #e2e8f0', padding: '4px', borderRadius: '8px' }}>
               {profiles.map((p) => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 'bold', backgroundColor: '#ffffff', border: '1px solid rgba(226,232,240,0.5)', padding: '4px 10px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
                   <span style={{ width: '4px', height: '4px', borderRadius: '9999px', backgroundColor: '#10b981' }} />
-                  {p.display_name}
+                  {p.display_name.replace(' Test', '')}
                 </div>
               ))}
             </div>
           </div>
         </header>
 
-        {/* 3. 5-Column Compact Grid Board Workspace Matrix */}
+        {/* 5-Column Side-by-Side Flex Layout Matrix Engine Container Grid */}
         <div className="kanban-board-grid">
           {laneOrder.map((laneKey) => (
             <div key={laneKey} className="kanban-lane">
               
+              {/* Lane Header Added Back into Render Matrix Stack */}
               <LaneHeader 
                 laneKey={laneKey} 
-                title={laneMeta[laneKey].title} 
+                title={laneTitles[laneKey]} 
                 cardCount={board[laneKey].length} 
               />
               
@@ -187,28 +242,52 @@ export default async function DashboardPage() {
 
                   return (
                     <MediaRowCard
-                      key={card.media.id}
+                      key={card.uniqueUiKey}
                       title={card.media.title}
                       mediaType={card.media.type}
                       networkLabel={networkLabel}
                       genres={genresArr}
+                      displayTags={card.displayTags}
                       description={card.media.description}
                       rottenTomatoesScore={card.media.rotten_tomatoes_score}
-                      showWatchNowCTA={laneKey === 'prioritised'}
+                      showWatchNowCTA={laneKey === 'short_list'}
                     >
-                      {Object.entries(card.userStates).map(([profileId, stateObj]) => (
-                        <UserProgressControl
-                          key={profileId}
-                          profileId={profileId}
-                          displayName={stateObj.displayName}
-                          currentState={stateObj.state}
-                          currentSeason={stateObj.currentSeason}
-                          mediaType={card.media.type}
-                          mediaItemId={card.media.id}
-                          laneOrder={laneOrder}
-                          onShiftAction={handleShiftColumn}
-                        />
-                      ))}
+                      {/* Render progress handlers scoped explicitly to active card layout bounds */}
+                      {card.trackingProfileId === 'collapsed' ? (
+                        profiles.map((p) => {
+                          const stateObj = userStates?.find(s => s.media_item_id === card.media.id && s.profile_id === p.id)
+                          return (
+                            <UserProgressControl
+                              key={p.id}
+                              profileId={p.id}
+                              displayName={p.display_name.replace(' Test', '')}
+                              currentState={stateObj?.state || 'long_list'}
+                              currentSeason={stateObj?.current_season || 1}
+                              mediaType={card.media.type}
+                              mediaItemId={card.media.id}
+                              laneOrder={laneOrder.filter(l => l !== 'not_available')}
+                              onShiftAction={handleShiftColumn}
+                            />
+                          )
+                        })
+                      ) : (
+                        (() => {
+                          const activeProfile = profiles.find(p => p.id === card.trackingProfileId)
+                          if (!activeProfile) return null
+                          return (
+                            <UserProgressControl
+                              profileId={card.trackingProfileId}
+                              displayName={activeProfile.display_name.replace(' Test', '')}
+                              currentState={laneKey}
+                              currentSeason={card.currentSeason}
+                              mediaType={card.media.type}
+                              mediaItemId={card.media.id}
+                              laneOrder={laneOrder.filter(l => l !== 'not_available')}
+                              onShiftAction={handleShiftColumn}
+                            />
+                          )
+                        })()
+                      )}
                     </MediaRowCard>
                   )
                 })}
